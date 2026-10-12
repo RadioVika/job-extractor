@@ -1,7 +1,7 @@
 [project]
 name = "job-extractor"
 version = "0.1.0"
-description = "Add your description here"
+description = "Helps you to find your dream job"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
