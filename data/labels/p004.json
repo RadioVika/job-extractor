@@ -1,0 +1,12 @@
+{
+  "role_type": "data_scientist",
+  "seniority": "senior",
+  "work_mode": "hybrid",
+  "german": "not_mentioned",
+  "skills": ["python", "sql", "spark", "pytorch", "tensorflow", "docker", "mlops", "mlflow", "airflow", "ab_testing", "causal_inference"],
+  "clouds": ["aws"],
+  "data_types": ["tabular", "images", "prices"],
+  "industry": "mobility",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

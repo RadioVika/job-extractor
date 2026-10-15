@@ -70,13 +70,23 @@ class Skill(StrEnum):
     kubernetes = "kubernetes"
     ci_cd = "ci_cd"
     terraform = "terraform"
-    mlops = "mlops"  # MLflow, model serving, monitoring
+    mlops = "mlops"  # model serving, monitoring
+    mlflow = "mlflow"
     airflow = "airflow"
+    databricks = "databricks"
     # analysis
     ab_testing = "ab_testing"
     statistics = "statistics"
-    # data_types
+    causal_inference = "causal_inference"
+    # data bases
+    snowflake = "snowflake"
+
+
+class DataType(StrEnum):
     images = "images"
+    tabular = "tabular"
+    prices = "prices"
+    text = "text"
 
 
 class JobPosting(BaseModel):
@@ -86,6 +96,7 @@ class JobPosting(BaseModel):
     german: GermanLevel
     skills: list[Skill] = Field(description="Only skills from the fixed vocabulary")
     clouds: list[Cloud]  # aws, gcp, azure
+    data_types: list[DataType]
     industry: str
     salary_min_eur: int | None = None
     salary_max_eur: int | None = None
