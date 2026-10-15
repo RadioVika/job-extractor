@@ -1,9 +1,12 @@
 from types import SimpleNamespace
 
+import anthropic
+import httpx
 import pytest
 from pydantic import ValidationError
+from tenacity import wait_none
 
-from job_extractor.extract import ExtractionError, check_salary, extract, load_prompt
+from job_extractor.extract import ExtractionError, _call, check_salary, extract, load_prompt
 from job_extractor.schema import JobPosting
 from job_extractor.settings import Settings
 
@@ -126,6 +129,30 @@ def test_extract_gives_up_after_one_repair():
 def test_extract_does_not_repair_refusal():
     client = FakeClient(fake_response(stop_reason="refusal", parsed_output=None))
     with pytest.raises(ExtractionError, match="refused"):
+        extract("x", client, Settings(anthropic_api_key=None))
+    assert len(client.calls) == 1
+
+
+def api_error(cls, status):
+    request = httpx.Request("POST", "https://x")
+    return cls("x", response=httpx.Response(status, request=request), body=None)
+
+
+def test_call_retries_rate_limit():
+    client = FakeClient(api_error(anthropic.RateLimitError, 429), fake_response())
+    messages = [{"role": "user", "content": "x"}]
+    response, attempts, _ = _call(
+        client, Settings(anthropic_api_key=None), messages, wait=wait_none()
+    )
+
+    assert response.parsed_output == POSTING
+    assert attempts == 2
+    assert len(client.calls) == 2
+
+
+def test_extract_does_not_retry_auth_error():
+    client = FakeClient(api_error(anthropic.AuthenticationError, 401))
+    with pytest.raises(anthropic.AuthenticationError):
         extract("x", client, Settings(anthropic_api_key=None))
     assert len(client.calls) == 1
 
