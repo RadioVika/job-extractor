@@ -31,7 +31,13 @@ class FakeClient:
 
 
 def fake_response(stop_reason="end_turn", parsed_output=POSTING):
-    return SimpleNamespace(stop_reason=stop_reason, stop_details=None, parsed_output=parsed_output)
+    return SimpleNamespace(
+        stop_reason=stop_reason,
+        stop_details=None,
+        parsed_output=parsed_output,
+        model="claude-test",
+        usage=SimpleNamespace(input_tokens=100, output_tokens=20),
+    )
 
 
 def test_prompt_exists():
@@ -42,10 +48,25 @@ def test_extract_returns_parsed_posting():
     client = FakeClient(fake_response())
     result = extract("ML Engineer\nBerlin\n\nBody", client, Settings(anthropic_api_key=None))
 
-    assert result == POSTING
+    assert result.posting == POSTING
+    assert result.model == "claude-test"
+    assert result.prompt_version == "v1"
+    assert (result.input_tokens, result.output_tokens) == (100, 20)
+    assert result.latency_s >= 0
+    assert result.api_attempts == 1
+    assert not result.repaired
     assert client.kwargs["output_format"] is JobPosting
     assert client.kwargs["system"][0]["text"] == load_prompt("v1")
     assert client.kwargs["messages"][0]["content"].startswith("<posting>\nML Engineer")
+
+
+def test_extract_flags_repaired_salary():
+    posting = POSTING.model_copy(update={"salary_min_eur": 80000})
+    client = FakeClient(fake_response(parsed_output=posting))
+    result = extract("No salary here.", client, Settings(anthropic_api_key=None))
+
+    assert result.posting.salary_min_eur is None
+    assert result.repaired
 
 
 @pytest.mark.parametrize("stop_reason", ["refusal", "max_tokens"])
