@@ -1,0 +1,12 @@
+{
+  "role_type": "data_scientist",
+  "seniority": "staff",
+  "work_mode": "hybrid",
+  "german": "not_mentioned",
+  "skills": ["python", "sql", "spark", "databricks", "mlops", "ab_testing", "statistics", "causal_inference", "airflow", "kubernetes", "ci_cd", "snowflake", "mlflow", "llm"],
+  "clouds": ["aws"],
+  "data_types": ["tabular"],
+  "industry": "travel",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

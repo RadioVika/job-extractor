@@ -5,6 +5,7 @@
   "german": "not_mentioned",
   "skills": ["llm"],
   "clouds": [],
+  "data_types": [],
   "industry": "travel",
   "salary_min_eur": null,
   "salary_max_eur": null
