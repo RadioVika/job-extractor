@@ -3,6 +3,8 @@
 import logging
 import re
 import sys
+import time
+from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
@@ -25,6 +27,18 @@ _NUMBER = re.compile(
 
 class ExtractionError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class ExtractionResult:
+    posting: JobPosting
+    model: str
+    prompt_version: str
+    input_tokens: int
+    output_tokens: int
+    latency_s: float
+    api_attempts: int
+    repaired: bool
 
 
 def _amounts_in(text: str) -> set[int]:
@@ -68,11 +82,12 @@ def make_client(settings: Settings) -> anthropic.Anthropic:
 
 def extract(
     posting: str, client: anthropic.Anthropic | None = None, settings: Settings | None = None
-) -> JobPosting:
+) -> ExtractionResult:
     """Parse one posting (title line, location line, blank line, body) into a JobPosting."""
     settings = settings or Settings()
     client = client or make_client(settings)
 
+    start = time.perf_counter()
     response = client.messages.parse(
         model=settings.model,
         max_tokens=16000,
@@ -86,6 +101,7 @@ def extract(
         output_format=JobPosting,
         output_config={"effort": settings.effort},
     )
+    latency_s = time.perf_counter() - start
 
     if response.stop_reason == "refusal":
         raise ExtractionError(f"model refused: {response.stop_details}")
@@ -93,7 +109,18 @@ def extract(
         raise ExtractionError("output truncated at max_tokens")
     if response.parsed_output is None:
         raise ExtractionError(f"no parsed output (stop_reason={response.stop_reason})")
-    return check_salary(posting, response.parsed_output)
+
+    checked = check_salary(posting, response.parsed_output)
+    return ExtractionResult(
+        posting=checked,
+        model=response.model,
+        prompt_version=settings.prompt_version,
+        input_tokens=response.usage.input_tokens,
+        output_tokens=response.usage.output_tokens,
+        latency_s=latency_s,
+        api_attempts=1,  # no retry loop yet
+        repaired=checked != response.parsed_output,
+    )
 
 
 if __name__ == "__main__":
@@ -102,4 +129,4 @@ if __name__ == "__main__":
     client = make_client(settings)
     for path in sys.argv[1:]:
         result = extract(Path(path).read_text(encoding="utf-8"), client, settings)
-        print(f"{path}: {result.model_dump_json()}")
+        print(f"{path}: {result.posting.model_dump_json()}")
