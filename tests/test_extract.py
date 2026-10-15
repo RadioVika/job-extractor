@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 
 from job_extractor.extract import ExtractionError, check_salary, extract, load_prompt
 from job_extractor.schema import JobPosting
@@ -18,16 +19,27 @@ POSTING = JobPosting(
 
 
 class FakeClient:
-    """Stands in for anthropic.Anthropic and records the request."""
+    """Stands in for anthropic.Anthropic and records the requests.
 
-    def __init__(self, response):
-        self.kwargs = None
+    Returns the given responses in order; an exception in the list is raised instead.
+    """
+
+    def __init__(self, *responses):
+        self.calls = []
+        queue = list(responses)
 
         def parse(**kwargs):
-            self.kwargs = kwargs
-            return response
+            self.calls.append(kwargs)
+            item = queue.pop(0) if len(queue) > 1 else queue[0]
+            if isinstance(item, Exception):
+                raise item
+            return item
 
         self.messages = SimpleNamespace(parse=parse)
+
+    @property
+    def kwargs(self):
+        return self.calls[-1]
 
 
 def fake_response(stop_reason="end_turn", parsed_output=POSTING):
@@ -74,6 +86,48 @@ def test_extract_raises_on_bad_stop(stop_reason):
     client = FakeClient(fake_response(stop_reason=stop_reason, parsed_output=None))
     with pytest.raises(ExtractionError):
         extract("x", client, Settings(anthropic_api_key=None))
+
+
+def validation_error():
+    try:
+        JobPosting.model_validate({})
+    except ValidationError as e:
+        return e
+
+
+BAD_RANGE = POSTING.model_copy(update={"salary_min_eur": 90000, "salary_max_eur": 70000})
+TEXT = "ML Engineer\nBerlin\n\n€70,000 - €90,000"
+
+
+@pytest.mark.parametrize("first", [validation_error(), fake_response(parsed_output=BAD_RANGE)])
+def test_extract_repairs_invalid_output(first):
+    client = FakeClient(first, fake_response())
+    result = extract(TEXT, client, Settings(anthropic_api_key=None))
+
+    assert result.posting == POSTING
+    assert result.repaired
+    assert result.api_attempts == 2
+    assert len(client.calls) == 2
+    repair_prompt = client.calls[1]["messages"][0]["content"]
+    assert repair_prompt.startswith("<posting>\nML Engineer")
+    assert "A previous attempt failed validation:" in repair_prompt
+    # tokens are only known for calls that returned a response
+    expected = 100 if isinstance(first, Exception) else 200
+    assert result.input_tokens == expected
+
+
+def test_extract_gives_up_after_one_repair():
+    client = FakeClient(fake_response(parsed_output=BAD_RANGE))
+    with pytest.raises(ExtractionError, match="after repair"):
+        extract(TEXT, client, Settings(anthropic_api_key=None))
+    assert len(client.calls) == 2
+
+
+def test_extract_does_not_repair_refusal():
+    client = FakeClient(fake_response(stop_reason="refusal", parsed_output=None))
+    with pytest.raises(ExtractionError, match="refused"):
+        extract("x", client, Settings(anthropic_api_key=None))
+    assert len(client.calls) == 1
 
 
 @pytest.mark.parametrize(
