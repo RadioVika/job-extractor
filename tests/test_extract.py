@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from job_extractor.extract import ExtractionError, extract, load_prompt
+from job_extractor.extract import ExtractionError, check_salary, extract, load_prompt
 from job_extractor.schema import JobPosting
 from job_extractor.settings import Settings
 
@@ -27,7 +27,7 @@ class FakeClient:
             self.kwargs = kwargs
             return response
 
-        self.beta = SimpleNamespace(messages=SimpleNamespace(parse=parse))
+        self.messages = SimpleNamespace(parse=parse)
 
 
 def fake_response(stop_reason="end_turn", parsed_output=POSTING):
@@ -53,3 +53,21 @@ def test_extract_raises_on_bad_stop(stop_reason):
     client = FakeClient(fake_response(stop_reason=stop_reason, parsed_output=None))
     with pytest.raises(ExtractionError):
         extract("x", client, Settings(anthropic_api_key=None))
+
+
+@pytest.mark.parametrize(
+    ("text", "salary", "expected"),
+    [
+        ("Austria: €90,000 - €168,000 gross annually", (90000, 168000), (90000, 168000)),
+        ("100.000 € Jahresgehalt.", (100000, 100000), (100000, 100000)),
+        ("100k Jahresgehalt", (100000, 100000), (100000, 100000)),
+        ("Salary: €6,000 per month", (72000, 72000), (72000, 72000)),
+        ("Competitive salary and stock options.", (80000, 80000), (None, None)),
+        ("From €70,000, depending on experience.", (70000, 90000), (70000, None)),
+        ("No salary here.", (None, None), (None, None)),
+    ],
+)
+def test_check_salary(text, salary, expected):
+    posting = POSTING.model_copy(update={"salary_min_eur": salary[0], "salary_max_eur": salary[1]})
+    result = check_salary(text, posting)
+    assert (result.salary_min_eur, result.salary_max_eur) == expected
