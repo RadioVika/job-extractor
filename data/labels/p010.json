@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "senior",
+  "work_mode": "unspecified",
+  "german": "not_mentioned",
+  "skills": ["llm", "ab_testing", "nlp", "python"],
+  "clouds": [],
+  "data_types": ["text"],
+  "industry": "healthcare",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}
