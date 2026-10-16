@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "lead",
+  "work_mode": "remote",
+  "german": "not_mentioned",
+  "skills": ["llm", "rag", "pytorch", "python", "fine_tuning", "scikit_learn", "agents", "spark", "sql", "statistics", "tensorflow", "llm_evaluation"],
+  "clouds": ["aws", "azure", "gcp"],
+  "data_types": ["tabular"],
+  "industry": "hr",
+  "salary_min_eur": 30000,
+  "salary_max_eur": 100000
+}

@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "senior",
+  "work_mode": "remote",
+  "german": "not_mentioned",
+  "skills": ["agents", "asr", "llm", "sql", "typescript", "python"],
+  "clouds": [],
+  "data_types": ["text", "tabular"],
+  "industry": "maps",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

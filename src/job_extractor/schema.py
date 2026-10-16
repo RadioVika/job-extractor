@@ -87,6 +87,9 @@ class Skill(StrEnum):
     causal_inference = "causal_inference"
     # data bases
     snowflake = "snowflake"
+    numpy = "numpy"
+    xgboost = "xgboost"
+    bigquery = "bigquery"
 
 
 class DataType(StrEnum):

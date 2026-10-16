@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "mid",
+  "work_mode": "remote",
+  "german": "nice_to_have",
+  "skills": ["llm", "python", "llm_evaluation"],
+  "clouds": [],
+  "data_types": [],
+  "industry": "healthcare",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}
