@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "senior",
+  "work_mode": "remote",
+  "german": "required",
+  "skills": ["llm", "ci_cd", "docker", "bigquery"],
+  "clouds": ["gcp"],
+  "data_types": [],
+  "industry": "consultant",
+  "salary_min_eur": 100000,
+  "salary_max_eur": 100000
+}
