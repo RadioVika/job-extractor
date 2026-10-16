@@ -52,6 +52,12 @@ class Skill(StrEnum):
     scikit_learn = "scikit_learn"
     pytorch = "pytorch"
     tensorflow = "tensorflow"
+    nlp = "nlp"
+    asr = "asr"  # Automatic Speech Recognition
+    search = "search"
+    ranking = "ranking"
+    hugging_face = "hugging_face"
+    rl = "rl"  # Reinforcement Learning
     # LLM work
     llm = "llm"  # "LLMs", "GenAI", "foundation models" all map here
     rag = "rag"
@@ -74,6 +80,7 @@ class Skill(StrEnum):
     mlflow = "mlflow"
     airflow = "airflow"
     databricks = "databricks"
+    etl = "etl"
     # analysis
     ab_testing = "ab_testing"
     statistics = "statistics"
