@@ -2,7 +2,7 @@
   "role_type": "ai_engineer",
   "seniority": "senior",
   "work_mode": "hybrid",
-  "german": "unspecified",
+  "german": "not_mentioned",
   "skills": ["python", "ci_cd", "agents"],
   "clouds": [],
   "data_types": ["text"],

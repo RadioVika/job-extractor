@@ -1,5 +1,6 @@
 """Extract a structured JobPosting from a posting's plain text with LLM."""
 
+import asyncio
 import logging
 import math
 import re
@@ -25,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PROMPTS = ROOT / "prompts"
 LABELS = ROOT / "data" / "labels"
 RAW = ROOT / "data" / "raw"
+CONCURRENCY = 5
 
 logger = logging.getLogger(__name__)
 
@@ -230,24 +232,44 @@ def _p95(values: list[float]) -> float:
     return ordered[math.ceil(0.95 * len(ordered)) - 1]
 
 
+async def _extract_file(
+    raw: Path, client: anthropic.Anthropic, settings: Settings, sem: asyncio.Semaphore
+) -> ExtractionResult:
+    async with sem:
+        # extract is synchronous; run it in a worker thread so up to CONCURRENCY calls overlap.
+        text = await asyncio.to_thread(raw.read_text, encoding="utf-8")
+        return await asyncio.to_thread(extract, text, client, settings)
+
+
+async def _extract_all(
+    raws: list[Path], client: anthropic.Anthropic, settings: Settings
+) -> list[ExtractionResult | BaseException]:
+    sem = asyncio.Semaphore(CONCURRENCY)
+    return await asyncio.gather(
+        *(_extract_file(raw, client, settings, sem) for raw in raws), return_exceptions=True
+    )
+
+
 def main(labels_dir: Path = LABELS, raw_dir: Path = RAW) -> None:
     """Extract every posting that has a label in labels_dir and print run statistics."""
     settings = Settings()
     client = make_client(settings)
     paths = sorted(labels_dir.glob("*.json"))
+    raws = [raw_dir / f"{label.stem}.txt" for label in paths]
+
+    outcomes = asyncio.run(_extract_all(raws, client, settings))
 
     results: list[ExtractionResult] = []
     failures = 0
-    for label in paths:
-        raw = raw_dir / f"{label.stem}.txt"
-        try:
-            result = extract(raw.read_text(encoding="utf-8"), client, settings)
-        except (OSError, ExtractionError, anthropic.APIError) as e:
+    for label, outcome in zip(paths, outcomes, strict=True):
+        if isinstance(outcome, OSError | ExtractionError | anthropic.APIError):
             failures += 1
-            print(f"{label.stem}: FAILED {type(e).__name__}: {e}", file=sys.stderr)
+            print(f"{label.stem}: FAILED {type(outcome).__name__}: {outcome}", file=sys.stderr)
             continue
-        results.append(result)
-        print(f"{label.stem}: {result.posting.model_dump_json()}")
+        if isinstance(outcome, BaseException):
+            raise outcome
+        results.append(outcome)
+        print(f"{label.stem}: {outcome.posting.model_dump_json()}")
 
     repaired = sum(r.repaired for r in results)
     tokens = sum(r.input_tokens + r.output_tokens for r in results)
