@@ -1,0 +1,12 @@
+{
+  "role_type": "ml_engineer",
+  "seniority": "senior",
+  "work_mode": "unspecified",
+  "german": "not_mentioned",
+  "skills": ["mlflow", "snowflake", "sql", "numpy", "ci_cd", "pandas", "python", "pytorch", "scikit_learn"],
+  "clouds": ["aws", "gcp"],
+  "data_types": [],
+  "industry": "cash-rewards platform",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

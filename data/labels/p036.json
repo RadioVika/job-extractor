@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "mid",
+  "work_mode": "remote",
+  "german": "required",
+  "skills": ["agents", "rag", "llm", "observability", "guardrails", "typescript"],
+  "clouds": ["azure"],
+  "data_types": [],
+  "industry": "education",
+  "salary_min_eur": 70000,
+  "salary_max_eur": 100000
+}

@@ -1,9 +1,9 @@
 {
   "role_type": "ai_engineer",
   "seniority": "senior",
-  "work_mode": "unspecified",
+  "work_mode": "hybrid",
   "german": "not_mentioned",
-  "skills": ["llm", "ab_testing", "nlp", "python"],
+  "skills": ["llm", "ab_testing", "nlp", "python", "typescript", "ci_cd", "observability", "guardrails"],
   "clouds": [],
   "data_types": ["text"],
   "industry": "healthcare",

@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "mid",
+  "work_mode": "remote",
+  "german": "not_mentioned",
+  "skills": ["agents", "sql", "python"],
+  "clouds": [],
+  "data_types": [],
+  "industry": "hr platform",
+  "salary_min_eur": 60000,
+  "salary_max_eur": 130000
+}

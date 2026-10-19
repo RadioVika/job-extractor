@@ -1,0 +1,12 @@
+{
+  "role_type": "ml_engineer",
+  "seniority": "senior",
+  "work_mode": "remote",
+  "german": "not_mentioned",
+  "skills": ["ranking", "rag", "pytorch", "llm", "search", "typescript", "python", "fine_tuning"],
+  "clouds": [],
+  "data_types": [],
+  "industry": "unspecified",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

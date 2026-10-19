@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "lead",
+  "work_mode": "hybrid",
+  "german": "not_mentioned",
+  "skills": ["llm", "rag", "pytorch", "python", "prompt_engineering", "fine_tuning", "guardrails", "hugging_face", "docker", "observability", "sql", "ranking", "kubernetes", "agents", "nosql"],
+  "clouds": ["azure", "gcp", "aws"],
+  "data_types": [],
+  "industry": "finance",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

@@ -3,7 +3,7 @@
   "seniority": "junior",
   "work_mode": "hybrid",
   "german": "required",
-  "skills": ["llm", "agents", "etl", "pytorch", "tensorflow", "langchain", "scikit_learn", "hugging_face"],
+  "skills": ["llm", "agents", "etl", "pytorch", "tensorflow", "langchain", "scikit_learn", "hugging_face", "python", "rag"],
   "clouds": ["aws", "azure"],
   "data_types": ["text"],
   "industry": "finance",

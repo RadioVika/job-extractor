@@ -90,6 +90,7 @@ class Skill(StrEnum):
     numpy = "numpy"
     xgboost = "xgboost"
     bigquery = "bigquery"
+    nosql = "nosql"
 
 
 class DataType(StrEnum):
@@ -97,6 +98,7 @@ class DataType(StrEnum):
     tabular = "tabular"
     prices = "prices"
     text = "text"
+    geospatial = "geospatial"
 
 
 class JobPosting(BaseModel):

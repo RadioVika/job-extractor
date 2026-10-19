@@ -1,0 +1,12 @@
+{
+  "role_type": "other",
+  "seniority": "mid",
+  "work_mode": "hybrid",
+  "german": "not_mentioned",
+  "skills": ["agents", "databricks", "sql", "llm", "python", "llm_evaluation"],
+  "clouds": [],
+  "data_types": ["text"],
+  "industry": "finance",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

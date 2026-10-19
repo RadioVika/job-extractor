@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "senior",
+  "work_mode": "remote",
+  "german": "not_mentioned",
+  "skills": ["llm", "python", "typescript", "terraform", "observability", "fastapi"],
+  "clouds": ["aws"],
+  "data_types": [],
+  "industry": "fintech",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

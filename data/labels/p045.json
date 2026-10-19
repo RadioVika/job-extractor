@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "senior",
+  "work_mode": "remote",
+  "german": "not_mentioned",
+  "skills": ["agents", "kubernetes", "pytorch", "rag", "ranking", "scikit_learn", "llm", "ci_cd", "mlops", "search", "numpy", "statistics", "docker", "observability", "tensorflow", "terraform", "pandas", "fine_tuning", "guardrails", "prompt_engineering", "python"],
+  "clouds": ["azure"],
+  "data_types": [],
+  "industry": "consulting",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

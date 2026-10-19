@@ -3,7 +3,7 @@
   "seniority": "senior",
   "work_mode": "hybrid",
   "german": "not_mentioned",
-  "skills": ["rag", "ranking", "search", "vector_db", "llm", "agents", "mlflow", "causal_inference", "python"],
+  "skills": ["rag", "ranking", "search", "vector_db", "llm", "agents", "mlflow", "causal_inference", "python", "typescript", "prompt_engineering", "fine_tuning", "observability"],
   "clouds": [],
   "data_types": ["text"],
   "industry": "healthcare",

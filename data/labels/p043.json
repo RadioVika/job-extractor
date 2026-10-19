@@ -1,0 +1,12 @@
+{
+  "role_type": "other",
+  "seniority": "senior",
+  "work_mode": "remote",
+  "german": "not_mentioned",
+  "skills": ["langchain", "python", "llm", "airflow", "mlops", "rag", "sql", "pandas", "numpy"],
+  "clouds": [],
+  "data_types": [],
+  "industry": "data framework",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "senior",
+  "work_mode": "remote",
+  "german": "not_mentioned",
+  "skills": ["agents", "llm", "guardrails", "langchain", "typescript", "prompt_engineering"],
+  "clouds": ["aws"],
+  "data_types": [],
+  "industry": "website builder",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

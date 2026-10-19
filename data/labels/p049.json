@@ -1,0 +1,12 @@
+{
+  "role_type": "ml_engineer",
+  "seniority": "mid",
+  "work_mode": "remote",
+  "german": "not_mentioned",
+  "skills": ["ci_cd", "mlops", "mlflow", "kubernetes", "observability", "docker", "python"],
+  "clouds": [],
+  "data_types": [],
+  "industry": "healthcare",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

@@ -1,0 +1,12 @@
+{
+  "role_type": "data_scientist",
+  "seniority": "senior",
+  "work_mode": "remote",
+  "german": "not_mentioned",
+  "skills": ["agents", "llm", "spark", "statistics", "fine_tuning", "python"],
+  "clouds": ["azure", "gcp", "aws"],
+  "data_types": [],
+  "industry": "finance",
+  "salary_min_eur": 65000,
+  "salary_max_eur": 65000
+}

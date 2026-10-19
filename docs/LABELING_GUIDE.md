@@ -4,7 +4,7 @@ How to hand-label job postings against the `JobPosting` schema in `src/job_extra
 
 ## Files
 
-- Input: `data/raw/pNNN.txt`. First line is the title follwing by posting body. `data/postings.jsonl` has the URL and company for each ID.
+- Input: `data/raw/pNNN.txt`. First line is the title, followed by the posting body. `data/postings.jsonl` has the URL and company for each ID.
 - Output: `data/labels/pNNN.json`, same ID as the raw file, one JSON object per file.
 
 You can check a label against the schema before saving:
@@ -61,6 +61,7 @@ If the title has no level, use the required years of experience: under 2 → `ju
 | `unspecified` | Nothing about where the work happens. |
 
 Perks like "work from anywhere 30 days a year" don't make a hybrid job `remote`.
+If the company offers both remote and hybrid, choose `hybrid`.
 
 ### `german`
 
@@ -83,8 +84,15 @@ Mapping from posting wording to vocabulary:
 
 | Skill | Posting says |
 |---|---|
-| `python`, `sql`, `typescript`, `spark`, `pandas`, `polars` | The language or library by name. PySpark → `spark`. |
-| `scikit_learn`, `pytorch`, `tensorflow` | The library by name. Keras → `tensorflow`. |
+| `python`, `sql`, `typescript` | The language by name. |
+| `spark`, `pandas`, `polars`, `numpy` | The library by name. PySpark → `spark`. |
+| `scikit_learn`, `pytorch`, `tensorflow`, `xgboost` | The library by name. Keras → `tensorflow`. |
+| `hugging_face` | Hugging Face, Transformers library, HF Hub. |
+| `nlp` | NLP, natural language processing, text classification, NER. |
+| `asr` | Automatic speech recognition, speech-to-text. |
+| `search` | Search systems, information retrieval, query understanding. |
+| `ranking` | Ranking, recommender systems, learning-to-rank, personalization. |
+| `rl` | Reinforcement learning, bandits. |
 | `llm` | LLMs, GenAI, foundation models, OpenAI/Anthropic APIs. |
 | `rag` | RAG, retrieval-augmented generation, retrieval over documents. |
 | `agents` | Agents, agentic AI, tool use, multi-agent systems. |
@@ -99,12 +107,17 @@ Mapping from posting wording to vocabulary:
 | `fastapi` | FastAPI by name. |
 | `docker`, `kubernetes`, `terraform`, `airflow` | The tool by name. K8s → `kubernetes`. |
 | `ci_cd` | CI/CD, GitHub Actions, GitLab CI. |
-| `mlops` | Deploying, serving or monitoring ML models in production; MLflow. |
+| `mlops` | Deploying, serving or monitoring ML models in production. |
+| `mlflow` | MLflow by name. Usually comes with `mlops` too. |
+| `databricks` | Databricks by name. |
+| `etl` | ETL/ELT, building data pipelines. |
 | `ab_testing` | A/B tests, online experiments. |
-| `statistics` | Statistics, hypothesis testing, causal inference. |
-| `images` | Working with image data or computer vision. |
+| `statistics` | Statistics, hypothesis testing. |
+| `causal_inference` | Causal inference, uplift modelling, quasi-experiments (diff-in-diff, synthetic control). Usually comes with `statistics` too. |
+| `snowflake`, `bigquery` | The warehouse by name. BigQuery also adds `gcp` to `clouds`. |
+| `nosql` | NoSQL databases: MongoDB, DynamoDB, Cassandra, Redis, or "NoSQL". |
 
-A tool missing from the vocabulary (Snowflake, dbt, Java…) is left out. If one keeps coming up, add it to `Skill` and relabel.
+A tool missing from the vocabulary (dbt, Java…) is left out. If one keeps coming up, add it to `Skill` and relabel.
 
 ### `clouds`
 
@@ -115,6 +128,20 @@ Only clouds the posting names, directly or through one of their services:
 - `azure`: Azure, Azure OpenAI
 
 Databricks and Snowflake run on several clouds, so they don't count.
+
+### `data_types`
+
+The kinds of data the hire works with, from the `DataType` vocabulary. Tag only data the posting names as part of the job, not everything the company happens to have.
+
+| Value | Posting says |
+|---|---|
+| `text` | Text, documents, language data, conversations, transcripts; also LLM/NLP work over the company's own content. |
+| `images` | Images, video, computer vision. |
+| `tabular` | Structured/tabular data, transactional or event data, data warehouses, feature tables. |
+| `prices` | Pricing, price data, dynamic pricing, financial time series. |
+| `geospatial` | Maps, locations, GPS, routing, geospatial data. |
+
+Silent on data → `[]`.
 
 ### `industry`
 
@@ -144,6 +171,7 @@ Annual gross salary in euros, as whole numbers.
   "german": "not_mentioned",
   "skills": ["llm"],
   "clouds": [],
+  "data_types": [],
   "industry": "travel",
   "salary_min_eur": null,
   "salary_max_eur": null
@@ -154,3 +182,4 @@ Annual gross salary in euros, as whole numbers.
 - `senior`: from "Senior" in the title.
 - `hybrid`: "three days of in office collaboration" and `#LI-Hybrid`.
 - `skills`: only `llm`, from "Experience applying LLMs" in the extras. LLM-as-judge monitoring and the MLOps Engineers describe what the team does, not what this person does hands-on.
+- `data_types`: `[]`, the posting doesn't say what data the role works with.

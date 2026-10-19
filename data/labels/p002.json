@@ -3,7 +3,7 @@
   "seniority": "senior",
   "work_mode": "hybrid",
   "german": "not_mentioned",
-  "skills": ["llm", "llm_evaluation", "mlops", "pandas", "polars", "sql", "spark", "langchain", "rag"],
+  "skills": ["llm", "llm_evaluation", "mlops", "pandas", "polars", "sql", "spark", "langchain", "rag", "observability", "guardrails", "python", "tracing"],
   "clouds": [],
   "data_types": ["images"],
   "industry": "travel",

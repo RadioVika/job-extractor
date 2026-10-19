@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "senior",
+  "work_mode": "remote",
+  "german": "required",
+  "skills": ["agents", "rag", "llm", "python"],
+  "clouds": [],
+  "data_types": [],
+  "industry": "edtech",
+  "salary_min_eur": 90000,
+  "salary_max_eur": 115000
+}

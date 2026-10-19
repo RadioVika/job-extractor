@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "staff",
+  "work_mode": "unspecified",
+  "german": "not_mentioned",
+  "skills": ["llm", "observability"],
+  "clouds": [],
+  "data_types": [],
+  "industry": "unspecified",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

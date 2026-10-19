@@ -1,0 +1,12 @@
+{
+  "role_type": "ml_engineer",
+  "seniority": "senior",
+  "work_mode": "remote",
+  "german": "not_mentioned",
+  "skills": ["airflow", "spark", "python"],
+  "clouds": ["aws"],
+  "data_types": ["geospatial"],
+  "industry": "maps",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

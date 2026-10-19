@@ -13,6 +13,7 @@ import json
 import keyword
 import re
 import types
+from datetime import date
 from enum import Enum
 from pathlib import Path
 from typing import Any, Union, get_args, get_origin
@@ -125,12 +126,7 @@ def fields() -> dict[str, Any]:
 
 @app.get("/api/postings")
 def postings() -> list[dict[str, Any]]:
-    meta = {}
-    if INDEX.exists():
-        for line in INDEX.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                record = json.loads(line)
-                meta[record["id"]] = record
+    meta = {record["id"]: record for record in read_index()}
     result = []
     for path in sorted(RAW.glob("p*.txt")):
         pid = path.stem
@@ -149,6 +145,52 @@ def postings() -> list[dict[str, Any]]:
             }
         )
     return result
+
+
+class NewPosting(BaseModel):
+    company: str
+    title: str
+    location: str = ""
+    url: str = ""
+    text: str
+
+
+def read_index() -> list[dict[str, Any]]:
+    if not INDEX.exists():
+        return []
+    lines = INDEX.read_text(encoding="utf-8").splitlines()
+    return [json.loads(line) for line in lines if line.strip()]
+
+
+@app.post("/api/postings")
+def add_posting(new: NewPosting) -> dict[str, Any]:
+    """Save pasted posting text as the next pNNN, the same way scripts/fetch_postings.py does."""
+    company, title, body = new.company.strip().lower(), new.title.strip(), new.text.strip()
+    if not (company and title and body):
+        raise HTTPException(400, "company, title and text are required")
+    existing = read_index()
+    url = new.url.strip()
+    if url and any(p["url"] == url for p in existing):
+        raise HTTPException(400, f"{url} is already in {INDEX}")
+
+    # Count raw files too, so an id never collides with a text file missing from the index.
+    used = [int(p["id"][1:]) for p in existing] + [int(p.stem[1:]) for p in RAW.glob("p*.txt")]
+    pid = f"p{max(used, default=0) + 1:03d}"
+    RAW.mkdir(parents=True, exist_ok=True)
+    (RAW / f"{pid}.txt").write_text(f"{title}\n{new.location.strip()}\n\n{body}", encoding="utf-8")
+
+    record = {
+        "id": pid,
+        "url": url,
+        "company": company,
+        "title": title,
+        "date": date.today().isoformat(),
+        "source": "manual",
+    }
+    needs_newline = INDEX.exists() and not INDEX.read_text(encoding="utf-8").endswith("\n")
+    with INDEX.open("a", encoding="utf-8") as index:
+        index.write(("\n" if needs_newline else "") + json.dumps(record, ensure_ascii=False) + "\n")
+    return record
 
 
 @app.get("/api/postings/{posting_id}")
@@ -254,7 +296,15 @@ PAGE = """<!doctype html>
   #status { padding:8px 12px; border-radius:6px; margin-bottom:16px; font-size:13px; }
   #status.ok { background:var(--chip); }
   #status.bad { color:var(--warn); border:1px solid var(--warn); }
-  mark { background:var(--mark); color:inherit; }
+  mark { background:var(--mark); color:inherit; border-radius:2px; }
+  mark.hover { background:var(--on); color:var(--on-text); }
+  dialog { background:var(--panel); color:var(--text); border:1px solid var(--line);
+           border-radius:8px; width:min(720px, 90vw); }
+  dialog form { display:grid; gap:8px; }
+  dialog label { display:grid; gap:2px; font-size:12px; color:var(--muted); }
+  dialog textarea { font:inherit; color:inherit; background:var(--chip); min-height:40vh;
+                    border:1px solid var(--line); border-radius:6px; padding:4px 8px; }
+  dialog menu { display:flex; justify-content:flex-end; gap:8px; margin:0; padding:0; }
 </style>
 </head>
 <body>
@@ -262,8 +312,22 @@ PAGE = """<!doctype html>
   <button id="prev" title="Previous (Alt+←)">←</button>
   <select id="picker"></select>
   <button id="next" title="Next (Alt+→)">→</button>
+  <button id="add" title="Paste the text of a new posting">+ New</button>
   <span class="hint">Alt+← / Alt+→ to switch posting · click a label to add / remove it</span>
 </header>
+<dialog id="new-posting">
+  <form method="dialog">
+    <label>Company * <input name="company" required placeholder="e.g. getyourguide"></label>
+    <label>Title * <input name="title" required></label>
+    <label>Location <input name="location"></label>
+    <label>URL <input name="url" type="url"></label>
+    <label>Posting text * <textarea name="text" required></textarea></label>
+    <menu>
+      <button value="cancel" formnovalidate>Cancel</button>
+      <button value="save">Save</button>
+    </menu>
+  </form>
+</dialog>
 <main>
   <section id="text"></section>
   <section id="labels"><div id="status"></div><div id="form"></div></section>
@@ -382,42 +446,73 @@ function render() {
     }
     return el("div", { className: "field" + (missing ? " missing" : "") }, [heading, body]);
   }));
+  highlight(null);
 }
 
 // Catch-all values that would match ordinary prose ("other", "not") rather than a real mention.
 const GENERIC = new Set(["other", "unspecified", "not_mentioned"]);
 
-// Whether the whole tag appears in the posting: "scikit_learn" matches "scikit-learn",
+const escapeRe = s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&");
+
+// Regex source matching the whole tag: "scikit_learn" matches "scikit-learn",
 // "ci_cd" matches "CI/CD", "llm" matches "LLMs".
+const tagPattern = option =>
+  `\\\\b${option.split("_").map(escapeRe).join("[\\\\s_/-]*")}s?\\\\b`;
+
+// Whether the whole tag appears in the posting.
 function mentioned(option) {
-  if (GENERIC.has(option)) return false;
-  const words = option.split("_").map(w => w.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&"));
-  return new RegExp(`\\\\b${words.join("[\\\\s_/-]*")}s?\\\\b`, "i").test(current.text);
+  return !GENERIC.has(option) && new RegExp(tagPattern(option), "i").test(current.text);
 }
 
-// Hovering a label marks where its words appear in the posting text.
-function highlight(option) {
+// One regex for every tag of every field, longest first so "machine_learning" beats "machine".
+function allTagsRegex() {
+  const options = [...new Set(Object.values(fields).flatMap(spec => spec.options ?? []))]
+    .filter(opt => !GENERIC.has(opt))
+    .sort((a, b) => b.length - a.length);
+  return options.length ? new RegExp(options.map(tagPattern).join("|"), "gi") : null;
+}
+
+// Wrap every match of `re` in the posting body in <mark class=className>.
+function markBody(re, className) {
   const body = document.getElementById("body");
   const text = body.textContent;
-  if (!option) { body.textContent = text; return; }
-  const words = option.split("_").filter(w => w.length > 1)
-    .map(w => w.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&"));
-  const re = new RegExp(`\\\\b(${words.join("|")})`, "gi");
   const parts = [];
   let last = 0;
-  for (const m of text.matchAll(re)) {
-    parts.push(text.slice(last, m.index), el("mark", { textContent: m[0] }));
+  for (const m of re ? text.matchAll(re) : []) {
+    parts.push(text.slice(last, m.index), el("mark", { className, textContent: m[0] }));
     last = m.index + m[0].length;
   }
   parts.push(text.slice(last));
   body.replaceChildren(...parts);
-  body.querySelector("mark")?.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
+// By default every tag mention is marked; hovering a label marks just its words instead.
+function highlight(option) {
+  if (!option) { markBody(allTagsRegex(), ""); return; }
+  const words = option.split("_").filter(w => w.length > 1).map(escapeRe);
+  markBody(new RegExp(`\\\\b(${words.join("|")})`, "gi"), "hover");
+  document.querySelector("#body mark")?.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
 function step(delta) {
   const i = postings.findIndex(p => p.id === current.id) + delta;
   if (i >= 0 && i < postings.length) open(postings[i].id);
 }
+
+const dialog = document.getElementById("new-posting");
+document.getElementById("add").onclick = () => dialog.showModal();
+dialog.onclose = async () => {
+  if (dialog.returnValue !== "save") return;
+  const form = dialog.querySelector("form");
+  const record = await api("/api/postings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(Object.fromEntries(new FormData(form))),
+  });
+  form.reset();
+  await loadPostings();
+  open(record.id);
+};
 
 document.getElementById("picker").onchange = e => open(e.target.value);
 document.getElementById("prev").onclick = () => step(-1);

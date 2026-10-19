@@ -1,0 +1,12 @@
+{
+  "role_type": "ml_engineer",
+  "seniority": "senior",
+  "work_mode": "hybrid",
+  "german": "not_mentioned",
+  "skills": ["sql", "fastapi", "python", "databricks"],
+  "clouds": [],
+  "data_types": [],
+  "industry": "finance",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

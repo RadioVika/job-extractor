@@ -1,0 +1,12 @@
+{
+  "role_type": "ml_engineer",
+  "seniority": "mid",
+  "work_mode": "remote",
+  "german": "not_mentioned",
+  "skills": ["pytorch", "mlflow", "ci_cd", "python"],
+  "clouds": [],
+  "data_types": [],
+  "industry": "factory floor planning",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

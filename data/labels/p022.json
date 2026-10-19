@@ -1,0 +1,12 @@
+{
+  "role_type": "ml_engineer",
+  "seniority": "senior",
+  "work_mode": "remote",
+  "german": "not_mentioned",
+  "skills": ["ranking", "search", "agents", "llm_evaluation", "llm", "python", "pytorch", "scikit_learn", "pandas", "polars", "ab_testing", "typescript", "rag"],
+  "clouds": [],
+  "data_types": [],
+  "industry": "b2b marketplace",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}
