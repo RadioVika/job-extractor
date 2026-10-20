@@ -261,70 +261,149 @@ PAGE = """<!doctype html>
 <meta charset="utf-8">
 <title>Label postings</title>
 <style>
-  :root { --bg:#f7f7f5; --panel:#fff; --text:#1d1d1b; --muted:#6b6b66; --line:#e2e1dc;
-          --chip:#efeeea; --on:#2f6f4f; --on-text:#fff; --warn:#a4462b; --mark:#fff3b0; }
+  :root { --bg:#f4f3ef; --panel:#fff; --text:#1f1e1c; --muted:#78766f; --faint:#a8a69e;
+          --line:#e7e5de; --chip:#f2f0ea; --chip-hover:#e9e6dd; --on:#2f6f4f; --on-text:#fff;
+          --on-soft:#e2efe7; --warn:#b4532a; --warn-soft:#fbefe7; --mark:#fcecaa;
+          --seen:#d9a400; --shadow:0 1px 2px rgb(0 0 0 / .04), 0 2px 8px rgb(0 0 0 / .04); }
   @media (prefers-color-scheme: dark) {
-    :root { --bg:#191918; --panel:#222220; --text:#e8e7e3; --muted:#9a9993; --line:#3a3936;
-            --chip:#2e2d2b; --on:#4f9e74; --on-text:#0e1a13; --warn:#e07a5c; --mark:#5a4d12; }
+    :root { --bg:#171716; --panel:#1f1f1d; --text:#e9e8e4; --muted:#9d9b94; --faint:#6c6a64;
+            --line:#33322f; --chip:#2a2927; --chip-hover:#353431; --on:#5bb085;
+            --on-text:#0c1a12; --on-soft:#1f3329; --warn:#e5866a; --warn-soft:#3a241c;
+            --mark:#584a12; --seen:#e2b93b; --shadow:none; }
   }
   * { box-sizing: border-box; }
-  body { margin:0; font:14px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--text);
-         height:100vh; display:flex; flex-direction:column; }
-  header { display:flex; gap:8px; align-items:center; padding:8px 16px;
+  body { margin:0; font:14px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif;
+         background:var(--bg); color:var(--text); height:100vh; display:flex;
+         flex-direction:column; -webkit-font-smoothing:antialiased; }
+  ::-webkit-scrollbar { width:10px; }
+  ::-webkit-scrollbar-thumb { background:var(--line); border-radius:999px;
+                              border:3px solid transparent; background-clip:content-box; }
+
+  /* Header */
+  header { display:flex; gap:8px; align-items:center; padding:10px 20px;
            border-bottom:1px solid var(--line); background:var(--panel); }
-  header select { flex:1; max-width:560px; }
+  .brand { font-weight:700; letter-spacing:-.01em; margin-right:8px; white-space:nowrap; }
+  .brand span { color:var(--on); }
+  header select { flex:1; max-width:520px; min-width:0; }
   select, input, button { font:inherit; color:inherit; background:var(--chip);
-                          border:1px solid var(--line); border-radius:6px; padding:4px 8px; }
+                          border:1px solid transparent; border-radius:8px; padding:6px 10px;
+                          transition:background .12s, border-color .12s, color .12s; }
+  select:focus, input:focus, textarea:focus { outline:none; border-color:var(--on);
+                                              box-shadow:0 0 0 3px var(--on-soft); }
   button { cursor:pointer; }
-  .hint { color:var(--muted); font-size:12px; margin-left:auto; }
-  main { flex:1; display:grid; grid-template-columns: 1fr 1fr; min-height:0; }
-  #text { overflow:auto; padding:16px 24px; white-space:pre-wrap; background:var(--panel);
-          border-right:1px solid var(--line); }
-  #text h1 { font-size:18px; margin:0; white-space:normal; }
-  #text .loc { color:var(--muted); margin-bottom:12px; }
-  #labels { overflow:auto; padding:16px 24px; }
-  .field { margin-bottom:16px; }
-  .field h2 { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted);
-              margin:0 0 6px; display:flex; gap:8px; }
-  .field.missing h2 { color:var(--warn); }
+  button:hover { background:var(--chip-hover); }
+  .icon { width:34px; padding:6px 0; }
+  .primary { background:var(--on); color:var(--on-text); font-weight:600; }
+  .primary:hover { background:var(--on); filter:brightness(1.08); }
+  #progress { display:flex; align-items:center; gap:8px; margin-left:auto; color:var(--muted);
+              font-size:12px; white-space:nowrap; }
+  #progress .bar { width:120px; height:6px; border-radius:999px; background:var(--chip);
+                   overflow:hidden; }
+  #progress .fill { height:100%; background:var(--on); border-radius:999px;
+                    transition:width .3s; }
+  kbd { font:11px ui-monospace, monospace; padding:1px 5px; border-radius:4px;
+        border:1px solid var(--line); border-bottom-width:2px; background:var(--panel); }
+  .hint { color:var(--faint); font-size:12px; padding:6px 20px; display:flex; gap:16px;
+          border-bottom:1px solid var(--line); background:var(--panel); }
+  .hint .dot { display:inline-block; width:7px; height:7px; border-radius:50%;
+               background:var(--seen); margin-right:4px; vertical-align:1px; }
+
+  main { flex:1; display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height:0; }
+
+  /* Posting text */
+  #text { overflow:auto; background:var(--panel); border-right:1px solid var(--line); }
+  #text > .inner { max-width:72ch; margin:0 auto; padding:32px 40px 64px; }
+  #text .meta { font-size:12px; color:var(--muted); text-transform:uppercase;
+                letter-spacing:.06em; font-weight:600; }
+  #text .meta .id { color:var(--faint); font-family:ui-monospace, monospace;
+                    text-transform:none; letter-spacing:0; margin-left:6px; }
+  #text h1 { font-size:24px; line-height:1.25; letter-spacing:-.015em; margin:6px 0 8px; }
+  #text .loc { color:var(--muted); padding-bottom:20px; margin-bottom:24px;
+               border-bottom:1px solid var(--line); }
+  #body { white-space:pre-wrap; font-size:15px; line-height:1.7; }
+
+  /* Label panel */
+  #labels { overflow:auto; padding:20px 24px 64px; }
+  #labels > * { max-width:760px; margin-left:auto; margin-right:auto; }
+  .field { background:var(--panel); border:1px solid var(--line); border-radius:12px;
+           padding:12px 14px 14px; margin-bottom:10px; box-shadow:var(--shadow); }
+  .field.missing { border-left:3px solid var(--warn); }
+  .field h2 { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted);
+              margin:0 0 10px; display:flex; gap:8px; align-items:center; font-weight:700; }
+  .field h2 .count { background:var(--chip); color:var(--muted); border-radius:999px;
+                     padding:0 7px; letter-spacing:0; font-size:11px; }
+  .field h2 .count.some { background:var(--on-soft); color:var(--on); }
+  .field.missing h2 .req { color:var(--warn); text-transform:none; letter-spacing:0;
+                           font-weight:500; margin-left:auto; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; }
-  .chip { border-radius:999px; padding:3px 10px; }
-  .chip:hover { border-color:var(--on); }
-  .chip.new { width:90px; background:transparent; border-style:dashed; }
-  .chip.seen { background:var(--mark); }
-  .chip.on { background:var(--on); color:var(--on-text); border-color:var(--on); font-weight:600; }
-  #status { padding:8px 12px; border-radius:6px; margin-bottom:16px; font-size:13px; }
-  #status.ok { background:var(--chip); }
-  #status.bad { color:var(--warn); border:1px solid var(--warn); }
-  mark { background:var(--mark); color:inherit; border-radius:2px; }
+  .chip { border-radius:999px; padding:4px 12px; font-size:13px; line-height:1.4; }
+  .chip:hover { background:var(--chip-hover); }
+  .chip.seen::after { content:""; display:inline-block; width:6px; height:6px;
+                      border-radius:50%; background:var(--seen); margin-left:6px;
+                      vertical-align:1px; }
+  .chip.on { background:var(--on); color:var(--on-text); font-weight:600; }
+  .chip.on::before { content:"✓ "; }
+  .chip.on.seen::after { background:var(--on-text); opacity:.7; }
+  .chip.new { width:96px; background:transparent; border:1px dashed var(--line);
+              color:var(--muted); }
+  .chip.new:focus { width:160px; border-style:solid; }
+  .field input:not(.chip) { width:100%; max-width:280px; background:var(--chip); }
+
+  #status { padding:10px 14px; border-radius:10px; margin-bottom:14px; font-size:13px;
+            display:flex; gap:8px; align-items:flex-start; }
+  #status.ok { background:var(--on-soft); color:var(--on); font-weight:600; }
+  #status.bad { background:var(--warn-soft); color:var(--warn); }
+  #status.empty { background:var(--chip); color:var(--muted); }
+
+  mark { background:var(--mark); color:inherit; border-radius:3px; padding:0 1px; }
   mark.hover { background:var(--on); color:var(--on-text); }
+
+  /* New posting dialog */
   dialog { background:var(--panel); color:var(--text); border:1px solid var(--line);
-           border-radius:8px; width:min(720px, 90vw); }
-  dialog form { display:grid; gap:8px; }
-  dialog label { display:grid; gap:2px; font-size:12px; color:var(--muted); }
-  dialog textarea { font:inherit; color:inherit; background:var(--chip); min-height:40vh;
-                    border:1px solid var(--line); border-radius:6px; padding:4px 8px; }
-  dialog menu { display:flex; justify-content:flex-end; gap:8px; margin:0; padding:0; }
+           border-radius:14px; width:min(720px, 92vw); padding:24px;
+           box-shadow:0 20px 60px rgb(0 0 0 / .25); }
+  dialog::backdrop { background:rgb(0 0 0 / .35); backdrop-filter:blur(2px); }
+  dialog h3 { margin:0 0 12px; font-size:17px; }
+  dialog form { display:grid; gap:12px; }
+  dialog .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  dialog label { display:grid; gap:4px; font-size:12px; font-weight:600; color:var(--muted); }
+  dialog input, dialog textarea { font-weight:400; color:var(--text); }
+  dialog textarea { font:inherit; font-weight:400; color:inherit; background:var(--chip);
+                    min-height:40vh; border:1px solid transparent; border-radius:8px;
+                    padding:8px 10px; resize:vertical; }
+  dialog menu { display:flex; justify-content:flex-end; gap:8px; margin:4px 0 0; padding:0; }
 </style>
 </head>
 <body>
 <header>
-  <button id="prev" title="Previous (Alt+←)">←</button>
+  <div class="brand">Job<span>Labeler</span></div>
+  <button id="prev" class="icon" title="Previous (Alt+←)">←</button>
   <select id="picker"></select>
-  <button id="next" title="Next (Alt+→)">→</button>
-  <button id="add" title="Paste the text of a new posting">+ New</button>
-  <span class="hint">Alt+← / Alt+→ to switch posting · click a label to add / remove it</span>
+  <button id="next" class="icon" title="Next (Alt+→)">→</button>
+  <button id="add" class="primary" title="Paste the text of a new posting">+ New posting</button>
+  <div id="progress"><span id="progress-text"></span>
+    <div class="bar"><div class="fill" id="progress-fill"></div></div></div>
 </header>
+<div class="hint">
+  <span><kbd>Alt</kbd> <kbd>←</kbd> <kbd>→</kbd> switch posting</span>
+  <span>Click a label to add / remove it · hover to find it in the text</span>
+  <span><span class="dot"></span>mentioned in the posting</span>
+</div>
 <dialog id="new-posting">
+  <h3>Add a posting</h3>
   <form method="dialog">
-    <label>Company * <input name="company" required placeholder="e.g. getyourguide"></label>
-    <label>Title * <input name="title" required></label>
-    <label>Location <input name="location"></label>
-    <label>URL <input name="url" type="url"></label>
+    <div class="row">
+      <label>Company * <input name="company" required placeholder="e.g. getyourguide"></label>
+      <label>Title * <input name="title" required></label>
+    </div>
+    <div class="row">
+      <label>Location <input name="location"></label>
+      <label>URL <input name="url" type="url"></label>
+    </div>
     <label>Posting text * <textarea name="text" required></textarea></label>
     <menu>
       <button value="cancel" formnovalidate>Cancel</button>
-      <button value="save">Save</button>
+      <button value="save" class="primary">Save</button>
     </menu>
   </form>
 </dialog>
@@ -356,6 +435,10 @@ async function loadPostings() {
     textContent: `${STATUS_ICON[p.status]} ${p.id} · ${p.company} · ${p.title}`,
   })));
   if (selected) picker.value = selected;
+  const done = postings.filter(p => p.status === "done").length;
+  document.getElementById("progress-text").textContent = `${done} / ${postings.length} labeled`;
+  document.getElementById("progress-fill").style.width =
+    `${postings.length ? (100 * done) / postings.length : 0}%`;
 }
 
 async function open(id) {
@@ -363,11 +446,13 @@ async function open(id) {
   document.getElementById("picker").value = id;
   history.replaceState(null, "", `#${id}`);
   const [title, location, ...rest] = current.text.split("\\n");
-  document.getElementById("text").replaceChildren(
+  const company = postings.find(p => p.id === id)?.company ?? "";
+  document.getElementById("text").replaceChildren(el("div", { className: "inner" }, [
+    el("div", { className: "meta" }, [company, el("span", { className: "id", textContent: id })]),
     el("h1", { textContent: title }),
-    el("div", { className: "loc", textContent: location }),
+    el("div", { className: "loc", textContent: location || "Location not given" }),
     el("div", { id: "body", textContent: rest.join("\\n").trim() }),
-  );
+  ]));
   document.getElementById("text").scrollTop = 0;
   render();
 }
@@ -401,9 +486,10 @@ async function addOption(field, value) {
 function render() {
   const labels = current.labels;
   const status = document.getElementById("status");
-  if (!Object.keys(labels).length) {
-    status.className = "bad";
-    status.textContent = "No label file yet — click a label to create it.";
+  const fresh = !Object.keys(labels).length;
+  if (fresh) {
+    status.className = "empty";
+    status.textContent = "Not labeled yet — click a label to create the file.";
   } else if (current.errors.length) {
     status.className = "bad";
     status.textContent = "Incomplete: " + current.errors.join("; ");
@@ -414,12 +500,17 @@ function render() {
 
   document.getElementById("form").replaceChildren(...Object.entries(fields).map(([name, spec]) => {
     const value = labels[name];
-    const missing = !(name in labels) || current.errors.some(e => e.startsWith(name + ":"));
+    const missing = !fresh
+      && (!(name in labels) || current.errors.some(e => e.startsWith(name + ":")));
     const heading = el("h2", { textContent: name.replaceAll("_", " ") });
+    if (missing) heading.append(el("span", { className: "req", textContent: "needs a value" }));
     let body;
     if (spec.kind === "enum" || spec.kind === "multi") {
       const chosen = spec.kind === "multi" ? (value ?? []) : [value];
-      if (spec.kind === "multi") heading.append(el("span", { textContent: `(${chosen.length})` }));
+      if (spec.kind === "multi") heading.insertBefore(el("span", {
+        className: "count" + (chosen.length ? " some" : ""),
+        textContent: chosen.length,
+      }), heading.childNodes[1] ?? null);
       body = el("div", { className: "chips" }, spec.options.map(opt => el("button", {
         className: "chip" + (chosen.includes(opt) ? " on" : "") + (mentioned(opt) ? " seen" : ""),
         title: mentioned(opt) ? "Mentioned in the posting" : "",
