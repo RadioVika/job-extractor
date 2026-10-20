@@ -13,6 +13,7 @@ from pathlib import Path
 import anthropic
 from pydantic import ValidationError
 from tenacity import (
+    RetryCallState,
     Retrying,
     retry_if_exception,
     stop_after_attempt,
@@ -96,7 +97,10 @@ def check_content(result: JobPosting) -> None:
 
 @cache
 def load_prompt(version: str) -> str:
-    return (PROMPTS / f"{version}.md").read_text(encoding="utf-8")
+    prompt = (PROMPTS / f"{version}.md").read_text(encoding="utf-8")
+    # Cached, so this is logged once per version rather than on every call.
+    logger.debug("system prompt %s:\n%s", version, prompt)
+    return prompt
 
 
 def make_client(settings: Settings) -> anthropic.Anthropic:
@@ -115,18 +119,36 @@ def _transient(e: BaseException) -> bool:
     return isinstance(e, anthropic.APIStatusError) and e.status_code >= 500
 
 
+def _response_text(resp) -> str:
+    return "".join(block.text for block in resp.content if block.type == "text")
+
+
 def _call(
     client: anthropic.Anthropic,
     settings: Settings,
     messages: list[dict],
     wait=_DEFAULT_WAIT,
+    posting_id: str = "-",
 ):
     """Call the model with retries; return (response, attempts, latency in seconds)."""
+
+    def log_retry(state: RetryCallState) -> None:
+        logger.info(
+            "posting=%s retry: attempt %d failed with %r, sleeping %.1fs",
+            posting_id,
+            state.attempt_number,
+            state.outcome.exception(),
+            state.next_action.sleep,
+        )
+
+    for message in messages:
+        logger.debug("posting=%s %s prompt:\n%s", posting_id, message["role"], message["content"])
     t0 = time.perf_counter()
     for attempt in Retrying(
         retry=retry_if_exception(_transient),
         wait=wait,
         stop=stop_after_attempt(5),
+        before_sleep=log_retry,
         reraise=True,
     ):
         with attempt:
@@ -144,6 +166,8 @@ def _call(
                 output_config={"effort": settings.effort},
             )
 
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("posting=%s response text:\n%s", posting_id, _response_text(resp))
     return resp, attempt.retry_state.attempt_number, time.perf_counter() - t0
 
 
@@ -158,38 +182,71 @@ class _Tally:
 
 
 def _attempt(
-    client: anthropic.Anthropic, settings: Settings, content: str, tally: _Tally
+    client: anthropic.Anthropic,
+    settings: Settings,
+    content: str,
+    tally: _Tally,
+    posting_id: str = "-",
 ) -> JobPosting:
     """One model call plus checks; raises ValidationError or InvalidOutput on bad output."""
     try:
-        response, api_attempts, _ = _call(
-            client=client, settings=settings, messages=[{"role": "user", "content": content}]
+        response, api_attempts, latency_s = _call(
+            client=client,
+            settings=settings,
+            messages=[{"role": "user", "content": content}],
+            posting_id=posting_id,
         )
-    except ValidationError:
+    except ValidationError as e:
         tally.api_attempts += 1
+        logger.info(
+            "posting=%s parse failure: output did not match schema (%d errors)",
+            posting_id,
+            e.error_count(),
+        )
         raise
     tally.model = response.model
     tally.input_tokens += response.usage.input_tokens
     tally.output_tokens += response.usage.output_tokens
     tally.api_attempts += api_attempts
+    logger.info(
+        "posting=%s model=%s prompt=%s latency=%.2fs input_tokens=%d output_tokens=%d "
+        "api_attempts=%d stop_reason=%s",
+        posting_id,
+        response.model,
+        settings.prompt_version,
+        latency_s,
+        response.usage.input_tokens,
+        response.usage.output_tokens,
+        api_attempts,
+        response.stop_reason,
+    )
 
     if response.stop_reason == "refusal":
         raise ExtractionError(f"model refused: {response.stop_details}")
     if response.stop_reason == "max_tokens":
         raise ExtractionError("output truncated at max_tokens")
     if response.parsed_output is None:
+        logger.info("posting=%s parse failure: no parsed output", posting_id)
         raise ExtractionError(f"no parsed output (stop_reason={response.stop_reason})")
 
-    check_content(response.parsed_output)
+    try:
+        check_content(response.parsed_output)
+    except InvalidOutput as e:
+        logger.info("posting=%s parse failure: %s", posting_id, e)
+        raise
     return response.parsed_output
 
 
 def extract(
-    posting: str, client: anthropic.Anthropic | None = None, settings: Settings | None = None
+    posting: str,
+    client: anthropic.Anthropic | None = None,
+    settings: Settings | None = None,
+    posting_id: str = "-",
 ) -> ExtractionResult:
     """Parse one posting (title line, location line, blank line, body) into a JobPosting.
 
     If the output fails validation, the model gets one more try with the errors attached.
+    posting_id only labels log lines.
     """
     settings = settings or Settings()
     client = client or make_client(settings)
@@ -199,21 +256,33 @@ def extract(
     repaired = False
     start = time.perf_counter()
     try:
-        parsed = _attempt(client, settings, content, tally)
+        parsed = _attempt(client, settings, content, tally, posting_id)
     except (ValidationError, InvalidOutput) as e:
-        logger.warning("output failed validation, retrying once: %s", e)
+        logger.warning("posting=%s output failed validation, retrying once: %s", posting_id, e)
         repaired = True
         feedback = (
             f"{content}\n\nA previous attempt failed validation: {e}. "
             "Return output that fixes these."
         )
         try:
-            parsed = _attempt(client, settings, feedback, tally)
+            parsed = _attempt(client, settings, feedback, tally, posting_id)
         except (ValidationError, InvalidOutput) as e2:
             raise ExtractionError(f"output still invalid after repair attempt: {e2}") from e2
     latency_s = time.perf_counter() - start
 
     checked = check_salary(posting, parsed)
+    logger.info(
+        "posting=%s done: model=%s prompt=%s latency=%.2fs input_tokens=%d output_tokens=%d "
+        "api_attempts=%d repaired=%s",
+        posting_id,
+        tally.model,
+        settings.prompt_version,
+        latency_s,
+        tally.input_tokens,
+        tally.output_tokens,
+        tally.api_attempts,
+        repaired or checked != parsed,
+    )
     return ExtractionResult(
         posting=checked,
         model=tally.model,
@@ -238,7 +307,7 @@ async def _extract_file(
     async with sem:
         # extract is synchronous; run it in a worker thread so up to CONCURRENCY calls overlap.
         text = await asyncio.to_thread(raw.read_text, encoding="utf-8")
-        return await asyncio.to_thread(extract, text, client, settings)
+        return await asyncio.to_thread(extract, text, client, settings, raw.stem)
 
 
 async def _extract_all(
@@ -253,6 +322,9 @@ async def _extract_all(
 def main(labels_dir: Path = LABELS, raw_dir: Path = RAW) -> None:
     """Extract every posting that has a label in labels_dir and print run statistics."""
     settings = Settings()
+    logging.basicConfig(
+        level=settings.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
     client = make_client(settings)
     paths = sorted(labels_dir.glob("*.json"))
     raws = [raw_dir / f"{label.stem}.txt" for label in paths]

@@ -12,3 +12,5 @@ class Settings(BaseSettings):
     model: str = "claude-opus-5-5"
     effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
     prompt_version: str = "v1"
+    # DEBUG adds the prompts and raw response text to the log.
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"

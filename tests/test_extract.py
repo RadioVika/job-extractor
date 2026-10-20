@@ -52,6 +52,7 @@ def fake_response(stop_reason="end_turn", parsed_output=POSTING):
         stop_details=None,
         parsed_output=parsed_output,
         model="claude-test",
+        content=[SimpleNamespace(type="text", text="{}")],
         usage=SimpleNamespace(input_tokens=100, output_tokens=20),
     )
 
