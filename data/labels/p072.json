@@ -1,0 +1,12 @@
+{
+  "role_type": "other",
+  "seniority": "mid",
+  "work_mode": "unspecified",
+  "german": "not_mentioned",
+  "skills": ["agents", "llm"],
+  "clouds": [],
+  "data_types": [],
+  "industry": "unspecified",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

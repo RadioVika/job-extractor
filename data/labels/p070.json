@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "senior",
+  "work_mode": "unspecified",
+  "german": "not_mentioned",
+  "skills": ["agents", "python", "llm", "snowflake", "terraform", "guardrails", "prompt_engineering"],
+  "clouds": ["aws"],
+  "data_types": [],
+  "industry": "fintech",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

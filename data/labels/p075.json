@@ -1,0 +1,12 @@
+{
+  "role_type": "ml_engineer",
+  "seniority": "lead",
+  "work_mode": "unspecified",
+  "german": "not_mentioned",
+  "skills": ["agents", "langchain", "prompt_engineering", "python", "rag", "llm", "mlops", "observability", "fine_tuning"],
+  "clouds": [],
+  "data_types": [],
+  "industry": "software development",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

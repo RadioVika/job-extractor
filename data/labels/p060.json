@@ -1,0 +1,12 @@
+{
+  "role_type": "ml_engineer",
+  "seniority": "lead",
+  "work_mode": "hybrid",
+  "german": "not_mentioned",
+  "skills": ["kafka", "rag"],
+  "clouds": ["gcp", "aws"],
+  "data_types": [],
+  "industry": "unspecified",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

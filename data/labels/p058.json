@@ -1,0 +1,12 @@
+{
+  "role_type": "ml_engineer",
+  "seniority": "senior",
+  "work_mode": "onsite",
+  "german": "not_mentioned",
+  "skills": ["airflow", "ci_cd", "docker", "python", "rag", "llm", "mlflow", "mlops"],
+  "clouds": ["aws", "azure", "gcp"],
+  "data_types": ["text"],
+  "industry": "fintech",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

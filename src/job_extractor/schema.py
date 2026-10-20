@@ -91,6 +91,9 @@ class Skill(StrEnum):
     xgboost = "xgboost"
     bigquery = "bigquery"
     nosql = "nosql"
+    lightgbm = "lightgbm"
+    kafka = "kafka"
+    crewai = "crewai"
 
 
 class DataType(StrEnum):

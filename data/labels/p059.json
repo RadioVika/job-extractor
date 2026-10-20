@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "mid",
+  "work_mode": "hybrid",
+  "german": "required",
+  "skills": ["agents", "airflow", "bigquery", "docker", "llm", "python", "sql"],
+  "clouds": ["gcp"],
+  "data_types": [],
+  "industry": "healthcare",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

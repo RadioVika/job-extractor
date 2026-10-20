@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "senior",
+  "work_mode": "hybrid",
+  "german": "not_mentioned",
+  "skills": ["agents", "rag", "langchain", "crewai", "llm", "python"],
+  "clouds": [],
+  "data_types": [],
+  "industry": "food delivery",
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}
