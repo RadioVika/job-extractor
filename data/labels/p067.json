@@ -6,7 +6,7 @@
   "skills": ["agents", "ranking", "llm", "docker", "fine_tuning", "guardrails", "search", "statistics", "typescript"],
   "clouds": [],
   "data_types": [],
-  "industry": "software development",
+  "industry": null,
   "salary_min_eur": 88000,
   "salary_max_eur": 176000
 }

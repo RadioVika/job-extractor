@@ -1,0 +1,12 @@
+{
+  "role_type": "other",
+  "seniority": "mid",
+  "work_mode": "hybrid",
+  "german": "required",
+  "skills": ["llm", "rag"],
+  "clouds": [],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

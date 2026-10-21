@@ -6,7 +6,7 @@
   "skills": ["langchain", "python", "llm", "airflow", "mlops", "rag", "sql", "pandas", "numpy"],
   "clouds": [],
   "data_types": [],
-  "industry": "data framework",
+  "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
 }

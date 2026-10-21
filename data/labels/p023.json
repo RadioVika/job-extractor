@@ -6,7 +6,7 @@
   "skills": ["agents", "sql", "python"],
   "clouds": [],
   "data_types": [],
-  "industry": "hr platform",
+  "industry": null,
   "salary_min_eur": 60000,
   "salary_max_eur": 130000
 }

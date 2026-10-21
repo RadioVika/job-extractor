@@ -6,7 +6,7 @@
   "skills": ["kafka", "rag"],
   "clouds": ["gcp", "aws"],
   "data_types": [],
-  "industry": "unspecified",
+  "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
 }

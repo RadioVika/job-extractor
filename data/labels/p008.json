@@ -6,7 +6,7 @@
   "skills": ["llm", "agents", "etl", "pytorch", "tensorflow", "langchain", "scikit_learn", "hugging_face", "python", "rag"],
   "clouds": ["aws", "azure"],
   "data_types": ["text"],
-  "industry": "finance",
+  "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
 }

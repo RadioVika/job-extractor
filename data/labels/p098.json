@@ -1,0 +1,12 @@
+{
+  "role_type": "data_scientist",
+  "seniority": "mid",
+  "work_mode": "unspecified",
+  "german": "not_mentioned",
+  "skills": ["nlp", "pandas", "numpy", "python", "sql", "langchain", "llm", "ci_cd", "prompt_engineering", "scikit_learn"],
+  "clouds": [],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

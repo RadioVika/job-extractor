@@ -6,7 +6,7 @@
   "skills": ["ranking", "search", "agents", "llm_evaluation", "llm", "python", "pytorch", "scikit_learn", "pandas", "polars", "ab_testing", "typescript", "rag"],
   "clouds": [],
   "data_types": [],
-  "industry": "b2b marketplace",
+  "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
 }

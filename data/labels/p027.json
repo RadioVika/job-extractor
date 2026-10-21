@@ -6,7 +6,7 @@
   "skills": ["llm", "rag", "pytorch", "python", "prompt_engineering", "fine_tuning", "guardrails", "hugging_face", "docker", "observability", "sql", "ranking", "kubernetes", "agents", "nosql"],
   "clouds": ["azure", "gcp", "aws"],
   "data_types": [],
-  "industry": "finance",
+  "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
 }

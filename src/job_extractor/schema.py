@@ -94,6 +94,7 @@ class Skill(StrEnum):
     lightgbm = "lightgbm"
     kafka = "kafka"
     crewai = "crewai"
+    forecasting = "forecasting"
 
 
 class DataType(StrEnum):
@@ -112,6 +113,6 @@ class JobPosting(BaseModel):
     skills: list[Skill] = Field(description="Only skills from the fixed vocabulary")
     clouds: list[Cloud]  # aws, gcp, azure
     data_types: list[DataType]
-    industry: str
+    industry: str | None = None
     salary_min_eur: int | None = None
     salary_max_eur: int | None = None

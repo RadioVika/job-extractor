@@ -6,7 +6,7 @@
   "skills": ["llm", "llm_evaluation", "mlops", "pandas", "polars", "sql", "spark", "langchain", "rag", "observability", "guardrails", "python", "tracing"],
   "clouds": [],
   "data_types": ["images"],
-  "industry": "travel",
+  "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
 }

@@ -6,7 +6,7 @@
   "skills": ["airflow", "spark", "python"],
   "clouds": ["aws"],
   "data_types": ["geospatial"],
-  "industry": "maps",
+  "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
 }

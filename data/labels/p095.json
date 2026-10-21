@@ -1,0 +1,12 @@
+{
+  "role_type": "data_scientist",
+  "seniority": "lead",
+  "work_mode": "hybrid",
+  "german": "not_mentioned",
+  "skills": ["databricks", "python", "sql", "statistics", "snowflake", "spark", "forecasting", "causal_inference"],
+  "clouds": ["gcp", "aws"],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

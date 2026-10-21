@@ -6,7 +6,7 @@
   "skills": ["agents", "llm", "guardrails", "langchain", "typescript", "prompt_engineering"],
   "clouds": ["aws"],
   "data_types": [],
-  "industry": "website builder",
+  "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
 }

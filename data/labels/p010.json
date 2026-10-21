@@ -6,7 +6,7 @@
   "skills": ["llm", "ab_testing", "nlp", "python", "typescript", "ci_cd", "observability", "guardrails"],
   "clouds": [],
   "data_types": ["text"],
-  "industry": "healthcare",
+  "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
 }

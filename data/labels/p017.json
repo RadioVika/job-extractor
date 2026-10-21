@@ -6,7 +6,7 @@
   "skills": ["llm", "ci_cd", "docker", "bigquery"],
   "clouds": ["gcp"],
   "data_types": [],
-  "industry": "consultant",
+  "industry": null,
   "salary_min_eur": 100000,
   "salary_max_eur": 100000
 }

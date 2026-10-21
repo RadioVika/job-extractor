@@ -6,7 +6,7 @@
   "skills": ["agents", "kubernetes", "pytorch", "rag", "ranking", "scikit_learn", "llm", "ci_cd", "mlops", "search", "numpy", "statistics", "docker", "observability", "tensorflow", "terraform", "pandas", "fine_tuning", "guardrails", "prompt_engineering", "python"],
   "clouds": ["azure"],
   "data_types": [],
-  "industry": "consulting",
+  "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
 }

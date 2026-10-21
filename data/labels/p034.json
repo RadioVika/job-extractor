@@ -6,7 +6,7 @@
   "skills": ["mlflow", "snowflake", "sql", "numpy", "ci_cd", "pandas", "python", "pytorch", "scikit_learn"],
   "clouds": ["aws", "gcp"],
   "data_types": [],
-  "industry": "cash-rewards platform",
+  "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
 }

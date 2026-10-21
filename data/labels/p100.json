@@ -1,0 +1,12 @@
+{
+  "role_type": "data_scientist",
+  "seniority": "staff",
+  "work_mode": "remote",
+  "german": "not_mentioned",
+  "skills": ["ci_cd", "ab_testing", "fastapi", "fine_tuning", "langchain", "hugging_face", "mlops", "python", "pytorch", "ranking", "snowflake", "search", "llm"],
+  "clouds": [],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

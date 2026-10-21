@@ -6,7 +6,7 @@
   "skills": ["llm", "nlp", "agents", "python", "pytorch", "sql", "tensorflow"],
   "clouds": [],
   "data_types": [],
-  "industry": "bank",
+  "industry": null,
   "salary_min_eur": 90000,
   "salary_max_eur": 168000
 }

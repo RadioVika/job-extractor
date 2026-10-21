@@ -6,7 +6,7 @@
   "skills": ["python", "sql", "spark", "pytorch", "tensorflow", "docker", "mlops", "mlflow", "airflow", "ab_testing", "causal_inference"],
   "clouds": ["aws"],
   "data_types": ["tabular", "images", "prices"],
-  "industry": "mobility",
+  "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
 }

@@ -6,7 +6,7 @@
   "skills": ["python", "airflow", "mlflow", "docker"],
   "clouds": ["aws", "gcp"],
   "data_types": [],
-  "industry": "food delivery",
+  "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
 }

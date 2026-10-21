@@ -6,7 +6,7 @@
   "skills": ["llm", "rag", "pytorch", "python", "fine_tuning", "scikit_learn", "agents", "spark", "sql", "statistics", "tensorflow", "llm_evaluation"],
   "clouds": ["aws", "azure", "gcp"],
   "data_types": ["tabular"],
-  "industry": "hr",
+  "industry": null,
   "salary_min_eur": 30000,
   "salary_max_eur": 100000
 }

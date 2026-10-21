@@ -6,7 +6,7 @@
   "skills": ["python", "mlops", "nlp", "llm", "rag", "agents", "pytorch", "asr", "statistics", "observability", "fine_tuning", "guardrails", "typescript"],
   "clouds": ["aws", "gcp"],
   "data_types": ["text"],
-  "industry": "healthcare",
+  "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
 }

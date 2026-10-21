@@ -6,7 +6,7 @@
   "skills": ["python", "mlops", "nlp", "llm", "rag", "agents", "search", "ranking", "pytorch", "tensorflow", "scikit_learn", "kubernetes", "docker", "mlflow", "prompt_engineering", "fine_tuning", "asr", "rl"],
   "clouds": ["aws"],
   "data_types": ["tabular", "images", "prices"],
-  "industry": "healthcare",
+  "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
 }
