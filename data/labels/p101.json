@@ -7,6 +7,6 @@
   "clouds": [],
   "data_types": [],
   "industry": null,
-  "salary_min_eur": null,
-  "salary_max_eur": null
+  "salary_min_eur": 61000,
+  "salary_max_eur": 75000
 }

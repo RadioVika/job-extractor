@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "senior",
+  "work_mode": "hybrid",
+  "german": "required",
+  "skills": ["databricks", "etl", "snowflake", "python", "sql"],
+  "clouds": [],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": 49000,
+  "salary_max_eur": 85000
+}

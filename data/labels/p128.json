@@ -1,0 +1,12 @@
+{
+  "role_type": "other",
+  "seniority": "senior",
+  "work_mode": "hybrid",
+  "german": "required",
+  "skills": ["llm"],
+  "clouds": [],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": 65000,
+  "salary_max_eur": 78000
+}

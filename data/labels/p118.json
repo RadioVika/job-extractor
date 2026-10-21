@@ -1,0 +1,12 @@
+{
+  "role_type": "data_engineer",
+  "seniority": "senior",
+  "work_mode": "hybrid",
+  "german": "nice_to_have",
+  "skills": ["airflow", "bigquery", "ci_cd", "etl", "kafka", "python", "sql", "snowflake"],
+  "clouds": ["aws", "gcp"],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": 50000,
+  "salary_max_eur": 70000
+}

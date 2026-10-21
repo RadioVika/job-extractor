@@ -1,0 +1,12 @@
+{
+  "role_type": "ml_engineer",
+  "seniority": "senior",
+  "work_mode": "hybrid",
+  "german": "not_mentioned",
+  "skills": ["mlflow", "mlops", "python", "tensorflow", "statistics", "pytorch"],
+  "clouds": ["aws", "gcp"],
+  "data_types": ["text", "images", "video"],
+  "industry": null,
+  "salary_min_eur": 50000,
+  "salary_max_eur": 70000
+}

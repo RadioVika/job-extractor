@@ -1,0 +1,12 @@
+{
+  "role_type": "other",
+  "seniority": "mid",
+  "work_mode": "hybrid",
+  "german": "required",
+  "skills": ["sql"],
+  "clouds": [],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": 58000,
+  "salary_max_eur": 78000
+}

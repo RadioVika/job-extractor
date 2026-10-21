@@ -264,12 +264,14 @@ PAGE = """<!doctype html>
   :root { --bg:#f4f3ef; --panel:#fff; --text:#1f1e1c; --muted:#78766f; --faint:#a8a69e;
           --line:#e7e5de; --chip:#f2f0ea; --chip-hover:#e9e6dd; --on:#2f6f4f; --on-text:#fff;
           --on-soft:#e2efe7; --warn:#b4532a; --warn-soft:#fbefe7; --mark:#fcecaa;
-          --seen:#d9a400; --shadow:0 1px 2px rgb(0 0 0 / .04), 0 2px 8px rgb(0 0 0 / .04); }
+          --seen:#d9a400; --seen-soft:#fbeeb8; --seen-hover:#f6e29a;
+          --shadow:0 1px 2px rgb(0 0 0 / .04), 0 2px 8px rgb(0 0 0 / .04); }
   @media (prefers-color-scheme: dark) {
     :root { --bg:#171716; --panel:#1f1f1d; --text:#e9e8e4; --muted:#9d9b94; --faint:#6c6a64;
             --line:#33322f; --chip:#2a2927; --chip-hover:#353431; --on:#5bb085;
             --on-text:#0c1a12; --on-soft:#1f3329; --warn:#e5866a; --warn-soft:#3a241c;
-            --mark:#584a12; --seen:#e2b93b; --shadow:none; }
+            --mark:#584a12; --seen:#e2b93b; --seen-soft:#3d3412;
+            --seen-hover:#4a3f15; --shadow:none; }
   }
   * { box-sizing: border-box; }
   body { margin:0; font:14px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -312,7 +314,7 @@ PAGE = """<!doctype html>
 
   /* Posting text */
   #text { overflow:auto; background:var(--panel); border-right:1px solid var(--line); }
-  #text > .inner { max-width:72ch; margin:0 auto; padding:32px 40px 64px; }
+  #text > .inner { padding:24px 28px 64px; }
   #text .meta { font-size:12px; color:var(--muted); text-transform:uppercase;
                 letter-spacing:.06em; font-weight:600; }
   #text .meta .id { color:var(--faint); font-family:ui-monospace, monospace;
@@ -338,10 +340,14 @@ PAGE = """<!doctype html>
   .chips { display:flex; flex-wrap:wrap; gap:6px; }
   .chip { border-radius:999px; padding:4px 12px; font-size:13px; line-height:1.4; }
   .chip:hover { background:var(--chip-hover); }
+  .chip.seen { background:var(--seen-soft); box-shadow:inset 0 0 0 1px var(--seen);
+              font-weight:600; }
+  .chip.seen:hover { background:var(--seen-hover); }
   .chip.seen::after { content:""; display:inline-block; width:6px; height:6px;
                       border-radius:50%; background:var(--seen); margin-left:6px;
                       vertical-align:1px; }
-  .chip.on { background:var(--on); color:var(--on-text); font-weight:600; }
+  .chip.on { background:var(--on); color:var(--on-text); font-weight:600; box-shadow:none; }
+  .chip.on:hover { background:var(--on); filter:brightness(1.08); }
   .chip.on::before { content:"✓ "; }
   .chip.on.seen::after { background:var(--on-text); opacity:.7; }
   .chip.new { width:96px; background:transparent; border:1px dashed var(--line);

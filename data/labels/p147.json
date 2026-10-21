@@ -1,0 +1,12 @@
+{
+  "role_type": "data_scientist",
+  "seniority": "mid",
+  "work_mode": "hybrid",
+  "german": "not_mentioned",
+  "skills": ["numpy", "pytorch", "tensorflow", "scikit_learn", "pandas", "python", "sql"],
+  "clouds": [],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

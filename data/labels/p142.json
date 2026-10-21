@@ -1,0 +1,12 @@
+{
+  "role_type": "other",
+  "seniority": "lead",
+  "work_mode": "remote",
+  "german": "required",
+  "skills": ["nosql", "tensorflow", "scikit_learn", "pandas", "llm", "python"],
+  "clouds": ["aws", "azure"],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": 57000,
+  "salary_max_eur": 100000
+}

@@ -35,6 +35,7 @@ What the job mainly is. Use the title first; read the body only when the title i
 | `other` | Everything else, including **people managers** (Data Science Manager, Head of ML), product managers and AI Process Owners. |
 
 A "Data Scientist" who builds LLM features is still `data_scientist`: the title wins unless it's clearly misleading.
+If both Data Scientist and Machine Learning Engineer are mentioned, choose  Machine Learning Engineer
 
 ### `seniority`
 

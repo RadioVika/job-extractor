@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "senior",
+  "work_mode": "unspecified",
+  "german": "required",
+  "skills": ["fine_tuning", "llm", "kubernetes", "crewai", "mlflow", "mlops", "python"],
+  "clouds": [],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

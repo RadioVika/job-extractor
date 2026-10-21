@@ -1,0 +1,12 @@
+{
+  "role_type": "ml_engineer",
+  "seniority": "mid",
+  "work_mode": "hybrid",
+  "german": "required",
+  "skills": ["kubernetes", "nlp", "python", "sql", "pytorch", "numpy", "tensorflow", "pandas", "scikit_learn", "polars"],
+  "clouds": [],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": 47000,
+  "salary_max_eur": 66000
+}

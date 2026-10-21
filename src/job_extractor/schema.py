@@ -103,6 +103,7 @@ class DataType(StrEnum):
     prices = "prices"
     text = "text"
     geospatial = "geospatial"
+    video = "video"
 
 
 class JobPosting(BaseModel):

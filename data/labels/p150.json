@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "mid",
+  "work_mode": "onsite",
+  "german": "required",
+  "skills": ["agents", "langchain", "prompt_engineering", "python", "ci_cd", "crewai", "typescript", "rag"],
+  "clouds": ["gcp"],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

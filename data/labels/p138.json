@@ -1,0 +1,12 @@
+{
+  "role_type": "ai_engineer",
+  "seniority": "senior",
+  "work_mode": "remote",
+  "german": "required",
+  "skills": ["hugging_face", "docker", "ci_cd", "guardrails", "kubernetes", "langchain", "llm", "scikit_learn", "tensorflow", "pytorch", "python"],
+  "clouds": ["azure"],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": 54000,
+  "salary_max_eur": 74000
+}

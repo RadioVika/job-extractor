@@ -1,0 +1,12 @@
+{
+  "role_type": "data_scientist",
+  "seniority": "senior",
+  "work_mode": "onsite",
+  "german": "required",
+  "skills": ["pandas", "scikit_learn", "tensorflow", "pytorch", "numpy", "python", "sql", "xgboost"],
+  "clouds": [],
+  "data_types": ["text", "images", "tabular"],
+  "industry": null,
+  "salary_min_eur": null,
+  "salary_max_eur": null
+}

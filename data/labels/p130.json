@@ -1,0 +1,12 @@
+{
+  "role_type": "other",
+  "seniority": "mid",
+  "work_mode": "hybrid",
+  "german": "nice_to_have",
+  "skills": ["fastapi", "python", "sql", "typescript"],
+  "clouds": [],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": 44000,
+  "salary_max_eur": 62000
+}

@@ -1,0 +1,12 @@
+{
+  "role_type": "data_scientist",
+  "seniority": "lead",
+  "work_mode": "hybrid",
+  "german": "required",
+  "skills": ["scikit_learn", "databricks", "llm", "python", "sql", "pytorch"],
+  "clouds": ["aws"],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": 72000,
+  "salary_max_eur": 99000
+}

@@ -1,0 +1,12 @@
+{
+  "role_type": "other",
+  "seniority": "mid",
+  "work_mode": "remote",
+  "german": "required",
+  "skills": ["python"],
+  "clouds": [],
+  "data_types": [],
+  "industry": null,
+  "salary_min_eur": 54000,
+  "salary_max_eur": 60000
+}
