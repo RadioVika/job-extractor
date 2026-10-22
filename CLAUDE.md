@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Job hunt assistant: collects job postings and (planned) extracts structured data from them with an LLM. Python 3.12, managed with `uv` (src layout, `uv_build` backend).
+Job hunt assistant: collects job postings and extracts structured data from them with an LLM (Anthropic or OpenAI). Python 3.12, managed with `uv` (src layout, `uv_build` backend).
 
 ## Commands
 
@@ -22,7 +22,11 @@ Ruff: line length 100, rules `E F I B UP` (see `pyproject.toml`). Pre-commit run
 
 ## Architecture
 
-The pipeline is still early: `src/job_extractor/{api,extract,schema,settings}.py` exist as empty stubs, and `__init__.py` only defines a placeholder `main()`. The dependencies show the intended design: FastAPI/uvicorn for `api.py`, the Anthropic and OpenAI SDKs for LLM extraction in `extract.py`, Pydantic models in `schema.py`, `pydantic-settings` for configuration in `settings.py` (a git-ignored `.env` sits at the repo root), and tenacity for retries.
+Extraction (`src/job_extractor/`):
+- `extract.py` turns a posting's plain text into a `JobPosting` (`schema.py`): one structured-output LLM call with tenacity retries on transient errors, one repair attempt if the output fails schema or content checks, then `check_salary` drops salary values not found in the text. Run it on a split: `uv run python -m job_extractor.extract dev [--provider openai] [--model NAME]`.
+- `llm.py` is the only module that imports a provider SDK. It defines the `LLMClient` protocol (`parse(system, user, schema) -> LLMResponse`), adapters for Anthropic (`messages.parse`) and OpenAI (`responses.parse`), `DEFAULT_MODELS`, and `make_client`. Adapters disable SDK retries and wrap SDK errors in `LLMError(transient=...)`; stop reasons map to `ok | refusal | max_tokens | other`.
+- `settings.py` is `pydantic-settings` reading the git-ignored `.env`: `PROVIDER` (anthropic default), `MODEL` (None = provider default), API keys, `EFFORT`, `PROMPT_VERSION`, `LOG_LEVEL`. CLI flags override it via `extract.load_settings`; switching provider on the CLI drops the `.env` model.
+- System prompts are `prompts/<version>.md`. `api.py` (FastAPI) is still an empty stub; `__init__.py` has a placeholder `main()`.
 
 Data ingestion currently lives outside the package, in `scripts/fetch_postings.py`:
 - It pulls jobs from the public Greenhouse boards API, keeps titles that match an AI/DS keyword regex, and caps each company at 10 postings.
@@ -30,4 +34,4 @@ Data ingestion currently lives outside the package, in `scripts/fetch_postings.p
 - One metadata record per posting is appended to `data/postings.jsonl` (`id, url, company, title, date, source`). This file is tracked. IDs are assigned sequentially from the current line count, and URLs already in the index are skipped, so re-running is idempotent per URL.
 - Paths are relative, so run the script from the repo root. `beautifulsoup4` is only in the `dev` dependency group.
 
-`prompts/` exists but is empty, presumably for the extraction prompts.
+Labels are hand-made in `data/labels/pNNN.json` (`scripts/label_ui.py`, guide in `docs/LABELING_GUIDE.md`); `scripts/split_labels.py` writes the dev/test split to `data/splits.json`.

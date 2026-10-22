@@ -11,8 +11,8 @@ import time
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
+from typing import get_args
 
-import anthropic
 from pydantic import ValidationError
 from tenacity import (
     RetryCallState,
@@ -22,8 +22,9 @@ from tenacity import (
     wait_random_exponential,
 )
 
+from job_extractor.llm import LLMClient, LLMError, LLMResponse, make_client
 from job_extractor.schema import JobPosting
-from job_extractor.settings import Settings
+from job_extractor.settings import Provider, Settings
 
 ROOT = Path(__file__).resolve().parents[2]
 PROMPTS = ROOT / "prompts"
@@ -53,6 +54,7 @@ class InvalidOutput(ExtractionError):
 @dataclass(frozen=True)
 class ExtractionResult:
     posting: JobPosting
+    provider: str
     model: str
     prompt_version: str
     input_tokens: int
@@ -106,33 +108,20 @@ def load_prompt(version: str) -> str:
     return prompt
 
 
-def make_client(settings: Settings) -> anthropic.Anthropic:
-    key = settings.anthropic_api_key
-    # Retries are handled by tenacity in _call, so the SDK's own retries are disabled.
-    return anthropic.Anthropic(api_key=key.get_secret_value() if key else None, max_retries=0)
-
-
 _DEFAULT_WAIT = wait_random_exponential(max=30)
 
 
 def _transient(e: BaseException) -> bool:
-    """Rate limits, network errors and 5xx are worth retrying; other 4xx are not."""
-    if isinstance(e, anthropic.RateLimitError | anthropic.APIConnectionError):
-        return True
-    return isinstance(e, anthropic.APIStatusError) and e.status_code >= 500
-
-
-def _response_text(resp) -> str:
-    return "".join(block.text for block in resp.content if block.type == "text")
+    return isinstance(e, LLMError) and e.transient
 
 
 def _call(
-    client: anthropic.Anthropic,
+    client: LLMClient,
     settings: Settings,
-    messages: list[dict],
+    content: str,
     wait=_DEFAULT_WAIT,
     posting_id: str = "-",
-):
+) -> tuple[LLMResponse, int, float]:
     """Call the model with retries; return (response, attempts, latency in seconds)."""
 
     def log_retry(state: RetryCallState) -> None:
@@ -144,8 +133,7 @@ def _call(
             state.next_action.sleep,
         )
 
-    for message in messages:
-        logger.debug("posting=%s %s prompt:\n%s", posting_id, message["role"], message["content"])
+    logger.debug("posting=%s user prompt:\n%s", posting_id, content)
     t0 = time.perf_counter()
     for attempt in Retrying(
         retry=retry_if_exception(_transient),
@@ -155,22 +143,9 @@ def _call(
         reraise=True,
     ):
         with attempt:
-            resp = client.messages.parse(
-                model=settings.model,
-                max_tokens=16000,
-                system=[
-                    {
-                        "type": "text",
-                        "text": load_prompt(settings.prompt_version),
-                    }
-                ],
-                messages=messages,
-                output_format=JobPosting,
-                output_config={"effort": settings.effort},
-            )
+            resp = client.parse(load_prompt(settings.prompt_version), content, JobPosting)
 
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.debug("posting=%s response text:\n%s", posting_id, _response_text(resp))
+    logger.debug("posting=%s response text:\n%s", posting_id, resp.text)
     return resp, attempt.retry_state.attempt_number, time.perf_counter() - t0
 
 
@@ -185,7 +160,7 @@ class _Tally:
 
 
 def _attempt(
-    client: anthropic.Anthropic,
+    client: LLMClient,
     settings: Settings,
     content: str,
     tally: _Tally,
@@ -196,7 +171,7 @@ def _attempt(
         response, api_attempts, latency_s = _call(
             client=client,
             settings=settings,
-            messages=[{"role": "user", "content": content}],
+            content=content,
             posting_id=posting_id,
         )
     except ValidationError as e:
@@ -208,41 +183,42 @@ def _attempt(
         )
         raise
     tally.model = response.model
-    tally.input_tokens += response.usage.input_tokens
-    tally.output_tokens += response.usage.output_tokens
+    tally.input_tokens += response.input_tokens
+    tally.output_tokens += response.output_tokens
     tally.api_attempts += api_attempts
     logger.info(
-        "posting=%s model=%s prompt=%s latency=%.2fs input_tokens=%d output_tokens=%d "
-        "api_attempts=%d stop_reason=%s",
+        "posting=%s provider=%s model=%s prompt=%s latency=%.2fs input_tokens=%d "
+        "output_tokens=%d api_attempts=%d stop=%s",
         posting_id,
+        client.provider,
         response.model,
         settings.prompt_version,
         latency_s,
-        response.usage.input_tokens,
-        response.usage.output_tokens,
+        response.input_tokens,
+        response.output_tokens,
         api_attempts,
-        response.stop_reason,
+        response.detail or response.stop,
     )
 
-    if response.stop_reason == "refusal":
-        raise ExtractionError(f"model refused: {response.stop_details}")
-    if response.stop_reason == "max_tokens":
+    if response.stop == "refusal":
+        raise ExtractionError(f"model refused: {response.detail}")
+    if response.stop == "max_tokens":
         raise ExtractionError("output truncated at max_tokens")
-    if response.parsed_output is None:
+    if response.parsed is None:
         logger.info("posting=%s parse failure: no parsed output", posting_id)
-        raise ExtractionError(f"no parsed output (stop_reason={response.stop_reason})")
+        raise ExtractionError(f"no parsed output (stop={response.detail or response.stop})")
 
     try:
-        check_content(response.parsed_output)
+        check_content(response.parsed)
     except InvalidOutput as e:
         logger.info("posting=%s parse failure: %s", posting_id, e)
         raise
-    return response.parsed_output
+    return response.parsed
 
 
 def extract(
     posting: str,
-    client: anthropic.Anthropic | None = None,
+    client: LLMClient | None = None,
     settings: Settings | None = None,
     posting_id: str = "-",
 ) -> ExtractionResult:
@@ -275,9 +251,10 @@ def extract(
 
     checked = check_salary(posting, parsed)
     logger.info(
-        "posting=%s done: model=%s prompt=%s latency=%.2fs input_tokens=%d output_tokens=%d "
-        "api_attempts=%d repaired=%s",
+        "posting=%s done: provider=%s model=%s prompt=%s latency=%.2fs input_tokens=%d "
+        "output_tokens=%d api_attempts=%d repaired=%s",
         posting_id,
+        client.provider,
         tally.model,
         settings.prompt_version,
         latency_s,
@@ -288,6 +265,7 @@ def extract(
     )
     return ExtractionResult(
         posting=checked,
+        provider=client.provider,
         model=tally.model,
         prompt_version=settings.prompt_version,
         input_tokens=tally.input_tokens,
@@ -305,7 +283,7 @@ def _p95(values: list[float]) -> float:
 
 
 async def _extract_file(
-    raw: Path, client: anthropic.Anthropic, settings: Settings, sem: asyncio.Semaphore
+    raw: Path, client: LLMClient, settings: Settings, sem: asyncio.Semaphore
 ) -> ExtractionResult:
     async with sem:
         # extract is synchronous; run it in a worker thread so up to CONCURRENCY calls overlap.
@@ -314,7 +292,7 @@ async def _extract_file(
 
 
 async def _extract_all(
-    raws: list[Path], client: anthropic.Anthropic, settings: Settings
+    raws: list[Path], client: LLMClient, settings: Settings
 ) -> list[ExtractionResult | BaseException]:
     sem = asyncio.Semaphore(CONCURRENCY)
     return await asyncio.gather(
@@ -330,14 +308,31 @@ def load_split(split: str, splits_file: Path = SPLITS) -> list[str]:
     return splits[split]
 
 
+def load_settings(provider: str | None = None, model: str | None = None) -> Settings:
+    """Settings from .env and the environment, with CLI values (if given) taking precedence.
+
+    Switching provider without naming a model uses that provider's default model, so a MODEL
+    from .env meant for one provider is never sent to another.
+    """
+    settings = Settings()
+    update = {}
+    if provider and provider != settings.provider:
+        update |= {"provider": provider, "model": None}
+    if model:
+        update["model"] = model
+    return Settings(**(settings.model_dump() | update)) if update else settings
+
+
 def main(
     split: str,
+    provider: str | None = None,
+    model: str | None = None,
     labels_dir: Path = LABELS,
     raw_dir: Path = RAW,
     splits_file: Path = SPLITS,
 ) -> None:
     """Extract every labeled posting in the given split and print run statistics."""
-    settings = Settings()
+    settings = load_settings(provider, model)
     logging.basicConfig(
         level=settings.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
@@ -350,7 +345,7 @@ def main(
     results: list[ExtractionResult] = []
     failures = 0
     for label, outcome in zip(paths, outcomes, strict=True):
-        if isinstance(outcome, OSError | ExtractionError | anthropic.APIError):
+        if isinstance(outcome, OSError | ExtractionError | LLMError):
             failures += 1
             print(f"{label.stem}: FAILED {type(outcome).__name__}: {outcome}", file=sys.stderr)
             continue
@@ -361,7 +356,9 @@ def main(
 
     repaired = sum(r.repaired for r in results)
     tokens = sum(r.input_tokens + r.output_tokens for r in results)
-    print(f"\nsplit:        {split}")
+    print(f"\nprovider:     {client.provider}")
+    print(f"model:        {client.model}")
+    print(f"split:        {split}")
     print(f"files:        {len(paths)}")
     print(f"failures:     {failures}")
     if paths:
@@ -372,7 +369,16 @@ def main(
 
 
 if __name__ == "__main__":
-    # uv run python -m job_extractor.extract dev
+    # uv run python -m job_extractor.extract dev --provider openai
     parser = argparse.ArgumentParser(description="Run the extractor on one split of the labels.")
     parser.add_argument("split", choices=["dev", "test"], help="which split from data/splits.json")
-    main(parser.parse_args().split)
+    parser.add_argument(
+        "--provider",
+        choices=list(get_args(Provider)),
+        help="LLM provider (default: PROVIDER from .env, else anthropic)",
+    )
+    parser.add_argument(
+        "--model", help="model name (default: MODEL from .env, else the provider's default)"
+    )
+    args = parser.parse_args()
+    main(args.split, provider=args.provider, model=args.model)

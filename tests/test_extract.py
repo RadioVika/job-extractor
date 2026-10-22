@@ -1,7 +1,3 @@
-from types import SimpleNamespace
-
-import anthropic
-import httpx
 import pytest
 from pydantic import ValidationError
 from tenacity import wait_none
@@ -12,8 +8,10 @@ from job_extractor.extract import (
     check_salary,
     extract,
     load_prompt,
+    load_settings,
     load_split,
 )
+from job_extractor.llm import LLMError, LLMResponse
 from job_extractor.schema import JobPosting
 from job_extractor.settings import Settings
 
@@ -30,37 +28,39 @@ POSTING = JobPosting(
 
 
 class FakeClient:
-    """Stands in for anthropic.Anthropic and records the requests.
+    """Stands in for an LLMClient and records the requests.
 
     Returns the given responses in order; an exception in the list is raised instead.
     """
 
+    provider = "fake"
+    model = "fake-model"
+
     def __init__(self, *responses):
         self.calls = []
-        queue = list(responses)
+        self.queue = list(responses)
 
-        def parse(**kwargs):
-            self.calls.append(kwargs)
-            item = queue.pop(0) if len(queue) > 1 else queue[0]
-            if isinstance(item, Exception):
-                raise item
-            return item
-
-        self.messages = SimpleNamespace(parse=parse)
+    def parse(self, system, user, schema):
+        self.calls.append({"system": system, "user": user, "schema": schema})
+        item = self.queue.pop(0) if len(self.queue) > 1 else self.queue[0]
+        if isinstance(item, Exception):
+            raise item
+        return item
 
     @property
     def kwargs(self):
         return self.calls[-1]
 
 
-def fake_response(stop_reason="end_turn", parsed_output=POSTING):
-    return SimpleNamespace(
-        stop_reason=stop_reason,
-        stop_details=None,
-        parsed_output=parsed_output,
-        model="claude-test",
-        content=[SimpleNamespace(type="text", text="{}")],
-        usage=SimpleNamespace(input_tokens=100, output_tokens=20),
+def fake_response(stop="ok", parsed_output=POSTING):
+    return LLMResponse(
+        parsed=parsed_output,
+        model="fake-model",
+        input_tokens=100,
+        output_tokens=20,
+        stop=stop,
+        detail=None,
+        text="{}",
     )
 
 
@@ -70,34 +70,35 @@ def test_prompt_exists():
 
 def test_extract_returns_parsed_posting():
     client = FakeClient(fake_response())
-    result = extract("ML Engineer\nBerlin\n\nBody", client, Settings(anthropic_api_key=None))
+    result = extract("ML Engineer\nBerlin\n\nBody", client, Settings())
 
     assert result.posting == POSTING
-    assert result.model == "claude-test"
+    assert result.provider == "fake"
+    assert result.model == "fake-model"
     assert result.prompt_version == "v1"
     assert (result.input_tokens, result.output_tokens) == (100, 20)
     assert result.latency_s >= 0
     assert result.api_attempts == 1
     assert not result.repaired
-    assert client.kwargs["output_format"] is JobPosting
-    assert client.kwargs["system"][0]["text"] == load_prompt("v1")
-    assert client.kwargs["messages"][0]["content"].startswith("<posting>\nML Engineer")
+    assert client.kwargs["schema"] is JobPosting
+    assert client.kwargs["system"] == load_prompt("v1")
+    assert client.kwargs["user"].startswith("<posting>\nML Engineer")
 
 
 def test_extract_flags_repaired_salary():
     posting = POSTING.model_copy(update={"salary_min_eur": 80000})
     client = FakeClient(fake_response(parsed_output=posting))
-    result = extract("No salary here.", client, Settings(anthropic_api_key=None))
+    result = extract("No salary here.", client, Settings())
 
     assert result.posting.salary_min_eur is None
     assert result.repaired
 
 
-@pytest.mark.parametrize("stop_reason", ["refusal", "max_tokens"])
-def test_extract_raises_on_bad_stop(stop_reason):
-    client = FakeClient(fake_response(stop_reason=stop_reason, parsed_output=None))
+@pytest.mark.parametrize("stop", ["refusal", "max_tokens"])
+def test_extract_raises_on_bad_stop(stop):
+    client = FakeClient(fake_response(stop=stop, parsed_output=None))
     with pytest.raises(ExtractionError):
-        extract("x", client, Settings(anthropic_api_key=None))
+        extract("x", client, Settings())
 
 
 def validation_error():
@@ -114,13 +115,13 @@ TEXT = "ML Engineer\nBerlin\n\n€70,000 - €90,000"
 @pytest.mark.parametrize("first", [validation_error(), fake_response(parsed_output=BAD_RANGE)])
 def test_extract_repairs_invalid_output(first):
     client = FakeClient(first, fake_response())
-    result = extract(TEXT, client, Settings(anthropic_api_key=None))
+    result = extract(TEXT, client, Settings())
 
     assert result.posting == POSTING
     assert result.repaired
     assert result.api_attempts == 2
     assert len(client.calls) == 2
-    repair_prompt = client.calls[1]["messages"][0]["content"]
+    repair_prompt = client.calls[1]["user"]
     assert repair_prompt.startswith("<posting>\nML Engineer")
     assert "A previous attempt failed validation:" in repair_prompt
     # tokens are only known for calls that returned a response
@@ -131,38 +132,30 @@ def test_extract_repairs_invalid_output(first):
 def test_extract_gives_up_after_one_repair():
     client = FakeClient(fake_response(parsed_output=BAD_RANGE))
     with pytest.raises(ExtractionError, match="after repair"):
-        extract(TEXT, client, Settings(anthropic_api_key=None))
+        extract(TEXT, client, Settings())
     assert len(client.calls) == 2
 
 
 def test_extract_does_not_repair_refusal():
-    client = FakeClient(fake_response(stop_reason="refusal", parsed_output=None))
+    client = FakeClient(fake_response(stop="refusal", parsed_output=None))
     with pytest.raises(ExtractionError, match="refused"):
-        extract("x", client, Settings(anthropic_api_key=None))
+        extract("x", client, Settings())
     assert len(client.calls) == 1
 
 
-def api_error(cls, status):
-    request = httpx.Request("POST", "https://x")
-    return cls("x", response=httpx.Response(status, request=request), body=None)
+def test_call_retries_transient_error():
+    client = FakeClient(LLMError("rate limited", transient=True), fake_response())
+    response, attempts, _ = _call(client, Settings(), "x", wait=wait_none())
 
-
-def test_call_retries_rate_limit():
-    client = FakeClient(api_error(anthropic.RateLimitError, 429), fake_response())
-    messages = [{"role": "user", "content": "x"}]
-    response, attempts, _ = _call(
-        client, Settings(anthropic_api_key=None), messages, wait=wait_none()
-    )
-
-    assert response.parsed_output == POSTING
+    assert response.parsed == POSTING
     assert attempts == 2
     assert len(client.calls) == 2
 
 
-def test_extract_does_not_retry_auth_error():
-    client = FakeClient(api_error(anthropic.AuthenticationError, 401))
-    with pytest.raises(anthropic.AuthenticationError):
-        extract("x", client, Settings(anthropic_api_key=None))
+def test_extract_does_not_retry_permanent_error():
+    client = FakeClient(LLMError("bad key", transient=False))
+    with pytest.raises(LLMError):
+        extract("x", client, Settings())
     assert len(client.calls) == 1
 
 
@@ -191,3 +184,37 @@ def test_load_split(tmp_path):
     assert load_split("test", splits) == ["p003"]
     with pytest.raises(ValueError):
         load_split("seed", splits)
+
+
+@pytest.fixture
+def env(monkeypatch, tmp_path):
+    """Run with no .env file and only the given environment variables."""
+    monkeypatch.chdir(tmp_path)
+    for name in ("PROVIDER", "MODEL"):
+        monkeypatch.delenv(name, raising=False)
+    return monkeypatch
+
+
+def test_load_settings_defaults(env):
+    settings = load_settings()
+    assert (settings.provider, settings.model) == ("anthropic", None)
+
+
+def test_load_settings_reads_config(env):
+    env.setenv("PROVIDER", "openai")
+    env.setenv("MODEL", "gpt-custom")
+    settings = load_settings()
+    assert (settings.provider, settings.model) == ("openai", "gpt-custom")
+
+
+def test_load_settings_cli_overrides_config(env):
+    env.setenv("PROVIDER", "openai")
+    env.setenv("MODEL", "gpt-custom")
+    assert load_settings(model="gpt-other").model == "gpt-other"
+    # Switching provider drops the configured model, which belongs to the other provider.
+    settings = load_settings(provider="anthropic")
+    assert (settings.provider, settings.model) == ("anthropic", None)
+    settings = load_settings(provider="anthropic", model="claude-x")
+    assert (settings.provider, settings.model) == ("anthropic", "claude-x")
+    # Same provider as configured: the configured model stays.
+    assert load_settings(provider="openai").model == "gpt-custom"
