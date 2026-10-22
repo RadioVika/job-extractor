@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from job_extractor.llm import (
     AnthropicClient,
     GeminiClient,
+    LlamaClient,
     LLMError,
     OpenAIClient,
     make_client,
@@ -52,15 +53,21 @@ class FakeSDK:
 
 
 def test_resolve_model():
-    assert resolve_model(Settings(provider="anthropic", model=None)) == "claude-opus-5-5"
+    assert resolve_model(Settings(provider="anthropic", model=None)) == "claude-haiku-5-5"
     assert resolve_model(Settings(provider="openai", model=None)) == "gpt-6-luna"
     assert resolve_model(Settings(provider="gemini", model=None)) == "gemini-4-argon"
+    assert resolve_model(Settings(provider="llama", model=None)) == "bonsai-2"
     assert resolve_model(Settings(provider="openai", model="gpt-x")) == "gpt-x"
 
 
 @pytest.mark.parametrize(
     ("provider", "cls"),
-    [("anthropic", AnthropicClient), ("openai", OpenAIClient), ("gemini", GeminiClient)],
+    [
+        ("anthropic", AnthropicClient),
+        ("openai", OpenAIClient),
+        ("gemini", GeminiClient),
+        ("llama", LlamaClient),
+    ],
 )
 def test_make_client(provider, cls):
     keys = {f"{name}_api_key": "test-key" for name in ("anthropic", "openai", "google")}
@@ -267,6 +274,109 @@ def test_gemini_blocked_prompt():
 )
 def test_gemini_wraps_errors(error, transient):
     client = GeminiClient(None, "m", "low", sdk=FakeSDK("models.generate_content", error))
+    with pytest.raises(LLMError) as info:
+        client.parse("s", "u", JobPosting)
+    assert info.value.transient is transient
+    assert info.value.__cause__ is error
+
+
+# Llama (local llama-server)
+
+
+def llama_response(finish_reason="stop", content=None, refusal=None):
+    message = SimpleNamespace(
+        content=POSTING.model_dump_json() if content is None else content, refusal=refusal
+    )
+    return SimpleNamespace(
+        choices=[SimpleNamespace(finish_reason=finish_reason, message=message)],
+        model="bonsai-test",
+        usage=SimpleNamespace(prompt_tokens=100, completion_tokens=20),
+    )
+
+
+def llama_client(result):
+    sdk = SimpleNamespace(chat=FakeSDK("completions.create", result))
+    return LlamaClient("http://x/v1", "bonsai-x", "low", sdk=sdk), sdk.chat
+
+
+def test_make_client_points_llama_at_local_port():
+    client = make_client(Settings(provider="llama", model=None, llama_port=9999))
+    assert str(client.sdk.base_url) == "http://127.0.0.1:9999/v1/"
+    assert client.model == "bonsai-2"
+
+
+def test_llama_parse():
+    client, sdk = llama_client(llama_response())
+    response = client.parse("sys", "user", JobPosting)
+
+    assert response.parsed == POSTING
+    assert (response.model, response.stop) == ("bonsai-test", "ok")
+    assert (response.input_tokens, response.output_tokens) == (100, 20)
+    assert sdk.kwargs["model"] == "bonsai-x"
+    assert sdk.kwargs["messages"] == [
+        {"role": "system", "content": "sys"},
+        {"role": "user", "content": "user"},
+    ]
+    json_schema = sdk.kwargs["response_format"]["json_schema"]
+    assert json_schema["schema"] == JobPosting.model_json_schema()
+    assert sdk.kwargs["reasoning_effort"] == "low"
+
+
+@pytest.mark.parametrize(
+    ("effort", "expected"),
+    [("low", "low"), ("medium", "medium"), ("high", "xhigh"), ("xhigh", "xhigh"), ("max", "xhigh")],
+)
+def test_llama_reasoning_effort(effort, expected):
+    sdk = SimpleNamespace(chat=FakeSDK("completions.create", llama_response()))
+    LlamaClient("http://x/v1", "m", effort, sdk=sdk).parse("s", "u", JobPosting)
+    assert sdk.chat.kwargs["reasoning_effort"] == expected
+
+
+@pytest.mark.parametrize("reasoning", ["none", "low", "medium", "xhigh"])
+def test_llama_reasoning_overrides_effort(reasoning):
+    sdk = SimpleNamespace(chat=FakeSDK("completions.create", llama_response()))
+    LlamaClient("http://x/v1", "m", "max", reasoning=reasoning, sdk=sdk).parse("s", "u", JobPosting)
+    assert sdk.chat.kwargs["reasoning_effort"] == reasoning
+
+
+def test_make_client_passes_llama_reasoning():
+    settings = Settings(provider="llama", model=None, effort="medium", llama_reasoning="none")
+    assert make_client(settings).reasoning == "none"
+    settings = Settings(provider="llama", model=None, effort="max", llama_reasoning=None)
+    assert make_client(settings).reasoning == "xhigh"
+
+
+def test_llama_invalid_output_raises_validation_error():
+    client, _ = llama_client(llama_response(content='{"role_type": "x"}'))
+    with pytest.raises(ValidationError):
+        client.parse("s", "u", JobPosting)
+
+
+@pytest.mark.parametrize(
+    ("finish_reason", "expected"), [("length", "max_tokens"), ("content_filter", "other")]
+)
+def test_llama_stop(finish_reason, expected):
+    client, _ = llama_client(llama_response(finish_reason, content='{"trunc'))
+    response = client.parse("s", "u", JobPosting)
+    assert (response.stop, response.detail, response.parsed) == (expected, finish_reason, None)
+
+
+def test_llama_refusal():
+    client, _ = llama_client(llama_response(content="", refusal="No."))
+    response = client.parse("s", "u", JobPosting)
+    assert (response.stop, response.detail) == ("refusal", "No.")
+
+
+@pytest.mark.parametrize(
+    ("error", "transient"),
+    [
+        (openai_error(openai.InternalServerError, 503), True),
+        (openai.APIConnectionError(request=httpx2.Request("POST", "https://x")), True),
+        (openai_error(openai.BadRequestError, 400), False),
+    ],
+)
+def test_llama_wraps_errors(error, transient):
+    client, _ = llama_client(error)
     with pytest.raises(LLMError) as info:
         client.parse("s", "u", JobPosting)
     assert info.value.transient is transient

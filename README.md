@@ -17,10 +17,17 @@ OPENAI_API_KEY=...
 GOOGLE_API_KEY=...
 
 # Optional
-PROVIDER=anthropic        # anthropic (default), openai or gemini
+PROVIDER=anthropic        # anthropic (default), openai, gemini or llama
 MODEL=                    # empty = the provider's default model
 EFFORT=medium             # low, medium, high, xhigh, max
 LOG_LEVEL=INFO            # DEBUG also logs prompts and raw responses
+
+# Local model (provider llama)
+LLAMA_MODEL_PATH=         # path to the Bonsai 2 GGUF file
+LLAMA_SERVER_BIN=llama-server   # PrismML's llama-server build
+LLAMA_PORT=8080
+LLAMA_CTX_SIZE=32768             # 65536 needs more than 16 GB of RAM
+LLAMA_REASONING=                 # none, low, medium or xhigh; empty = follow EFFORT
 ```
 
 ## LLM providers
@@ -30,6 +37,7 @@ LOG_LEVEL=INFO            # DEBUG also logs prompts and raw responses
 | `anthropic` | `claude-opus-5-5` | `ANTHROPIC_API_KEY` |
 | `openai`    | `gpt-6-luna`      | `OPENAI_API_KEY`    |
 | `gemini`    | `gemini-4-argon`  | `GOOGLE_API_KEY`    |
+| `llama`     | `bonsai-2`        | none (local)        |
 
 The provider and model come from (highest priority first):
 
@@ -42,7 +50,43 @@ ignored and that provider's default model is used, unless you also pass `--model
 
 `EFFORT` maps to each provider's reasoning setting. Gemini's thinking levels stop at `HIGH`,
 so `high`, `xhigh` and `max` all mean `HIGH` there. `gemini-4-argon` has no free-tier quota;
-on a free Google key use a Flash model, e.g. `--model gemini-3.8-flash`.
+on a free Google key use a Flash model, e.g. `--model gemini-3.8-flash`. For the local
+`llama` provider, `EFFORT` is sent as `reasoning_effort`. Bonsai 2 only accepts `low`, `medium`
+and `xhigh`, so `high`, `xhigh` and `max` all mean `xhigh`. Its reasoning counts against the
+output limit, and at `xhigh` it more often runs out before answering, so `medium` (the default)
+is the recommended setting. `LLAMA_REASONING` overrides that mapping for the local model only;
+`none` turns reasoning off, which is most of the run time (see below).
+
+### Local model (llama)
+
+The `llama` provider runs PrismML's Bonsai 2 27B (ternary `PQ2_0` pack, ~7.2 GB) on your
+machine through `llama-server`. The ternary format doesn't load in stock llama.cpp or Ollama,
+so you need PrismML's llama.cpp fork (`prism` branch) or its prebuilt binaries; see
+[PrismML's llama.cpp guide](https://docs.prismml.com/run/llamacpp) and
+[Bonsai-demo](https://github.com/PrismML-Eng/Bonsai-demo) for the binary and the GGUF. Use the
+`PQ2_0` GGUF, not the F16 file that Hugging Face's "Use this model" commands point at.
+
+Set `LLAMA_MODEL_PATH` (and `LLAMA_SERVER_BIN` if `llama-server` isn't on your `PATH`), then:
+
+```sh
+uv run python -m job_extractor.extract dev --provider llama
+```
+
+The extractor starts `llama-server` on `LLAMA_PORT`, waits up to 5 minutes for the model to
+load, runs the postings one at a time, and stops the server at the end. If a server is already
+answering on that port, it is used as is and left running, which saves the load time across
+runs.
+
+On a 16 GB Mac (M1 Pro), Bonsai 2 27B takes about 4 minutes per posting with reasoning at
+`medium`, about 80% of it spent generating reasoning tokens. With `LLAMA_REASONING=none` it
+takes about 35-60 seconds, but check the results against the labels before relying on it:
+
+```sh
+LLAMA_REASONING=none uv run python -m job_extractor.extract dev --provider llama
+```
+
+If every request fails with `500 Compute error.`, the GPU is out of memory: lower
+`LLAMA_CTX_SIZE` and close other memory-heavy apps.
 
 ## Running extraction
 

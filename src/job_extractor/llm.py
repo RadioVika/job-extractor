@@ -15,12 +15,14 @@ from google.genai import errors as genai_errors
 from google.genai import types as genai_types
 from pydantic import BaseModel
 
-from job_extractor.settings import Provider, Settings
+from job_extractor.settings import LlamaReasoning, Provider, Settings
 
 DEFAULT_MODELS: dict[Provider, str] = {
     "anthropic": "claude-haiku-5-5",
     "openai": "gpt-6-luna",
     "gemini": "gemini-4-argon",
+    # Served by a local llama-server under this alias (see llama_server.py).
+    "llama": "bonsai-2",
 }
 MAX_TOKENS = 16000
 
@@ -71,6 +73,13 @@ def make_client(settings: Settings) -> LLMClient:
         return OpenAIClient(settings.openai_api_key, model, settings.effort)
     if settings.provider == "gemini":
         return GeminiClient(settings.google_api_key, model, settings.effort)
+    if settings.provider == "llama":
+        return LlamaClient(
+            f"http://127.0.0.1:{settings.llama_port}/v1",
+            model,
+            settings.effort,
+            reasoning=settings.llama_reasoning,
+        )
     raise ValueError(f"unknown provider {settings.provider!r}")
 
 
@@ -226,6 +235,82 @@ class GeminiClient:
                 if usage
                 else 0
             ),
+            stop=stop,
+            detail=detail,
+            text=text,
+        )
+
+
+class LlamaClient:
+    """A local llama-server, through its OpenAI-compatible Chat Completions endpoint."""
+
+    provider = "llama"
+
+    # How EFFORT maps to a reasoning level when LLAMA_REASONING isn't set. Bonsai 2 rejects
+    # "high", so the top three efforts share xhigh.
+    REASONING_EFFORTS: dict[str, LlamaReasoning] = {
+        "low": "low",
+        "medium": "medium",
+        "high": "xhigh",
+        "xhigh": "xhigh",
+        "max": "xhigh",
+    }
+
+    def __init__(
+        self,
+        base_url: str,
+        model: str,
+        effort: str,
+        reasoning: LlamaReasoning | None = None,
+        sdk: openai.OpenAI | None = None,
+    ):
+        self.model = model
+        self.effort = effort
+        self.reasoning = reasoning or self.REASONING_EFFORTS[effort]
+        # llama-server needs no key, but the SDK insists on one. Retries are handled by
+        # tenacity in extract._call, so the SDK's own are disabled.
+        self.sdk = sdk or openai.OpenAI(base_url=base_url, api_key="local", max_retries=0)
+
+    def parse(self, system: str, user: str, schema: type[BaseModel]) -> LLMResponse:
+        # create rather than parse: the SDK's parse raises on a length stop instead of
+        # returning it, and llama-server turns the JSON schema into a grammar either way.
+        try:
+            resp = self.sdk.chat.completions.create(
+                model=self.model,
+                max_tokens=MAX_TOKENS,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {"name": schema.__name__, "schema": schema.model_json_schema()},
+                },
+                # Reasoning counts against max_tokens and dominates run time; "none" works only
+                # while the server runs with --reasoning auto (its default).
+                reasoning_effort=self.reasoning,
+            )
+        except openai.APIError as e:
+            raise LLMError(f"llama: {e}", _transient(e, openai)) from e
+
+        choice = resp.choices[0]
+        message = choice.message
+        text = message.content or ""
+        reason = choice.finish_reason
+        if message.refusal:
+            stop, detail = "refusal", message.refusal
+        elif reason == "length":
+            stop, detail = "max_tokens", reason
+        elif reason == "stop":
+            stop, detail = "ok", None
+        else:
+            stop, detail = "other", reason
+        return LLMResponse(
+            # Validated here so bad output raises ValidationError like the other adapters.
+            parsed=schema.model_validate_json(text) if stop == "ok" else None,
+            model=resp.model or self.model,
+            input_tokens=resp.usage.prompt_tokens if resp.usage else 0,
+            output_tokens=resp.usage.completion_tokens if resp.usage else 0,
             stop=stop,
             detail=detail,
             text=text,

@@ -8,6 +8,7 @@ import math
 import re
 import sys
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -22,6 +23,7 @@ from tenacity import (
     wait_random_exponential,
 )
 
+from job_extractor.llama_server import llama_server
 from job_extractor.llm import LLMClient, LLMError, LLMResponse, make_client
 from job_extractor.schema import JobPosting
 from job_extractor.settings import Provider, Settings
@@ -32,6 +34,8 @@ LABELS = ROOT / "data" / "labels"
 RAW = ROOT / "data" / "raw"
 SPLITS = ROOT / "data" / "splits.json"
 CONCURRENCY = 5
+# A local llama-server runs one request at a time.
+LLAMA_CONCURRENCY = 1
 
 logger = logging.getLogger(__name__)
 
@@ -286,15 +290,15 @@ async def _extract_file(
     raw: Path, client: LLMClient, settings: Settings, sem: asyncio.Semaphore
 ) -> ExtractionResult:
     async with sem:
-        # extract is synchronous; run it in a worker thread so up to CONCURRENCY calls overlap.
+        # extract is synchronous; run it in a worker thread so up to `concurrency` calls overlap.
         text = await asyncio.to_thread(raw.read_text, encoding="utf-8")
         return await asyncio.to_thread(extract, text, client, settings, raw.stem)
 
 
 async def _extract_all(
-    raws: list[Path], client: LLMClient, settings: Settings
+    raws: list[Path], client: LLMClient, settings: Settings, concurrency: int = CONCURRENCY
 ) -> list[ExtractionResult | BaseException]:
-    sem = asyncio.Semaphore(CONCURRENCY)
+    sem = asyncio.Semaphore(concurrency)
     return await asyncio.gather(
         *(_extract_file(raw, client, settings, sem) for raw in raws), return_exceptions=True
     )
@@ -340,7 +344,11 @@ def main(
     paths = [labels_dir / f"{posting_id}.json" for posting_id in load_split(split, splits_file)]
     raws = [raw_dir / f"{label.stem}.txt" for label in paths]
 
-    outcomes = asyncio.run(_extract_all(raws, client, settings))
+    local = settings.provider == "llama"
+    # For the local model, start llama-server for this run (or use one already running).
+    with llama_server(settings) if local else nullcontext():
+        concurrency = LLAMA_CONCURRENCY if local else CONCURRENCY
+        outcomes = asyncio.run(_extract_all(raws, client, settings, concurrency))
 
     results: list[ExtractionResult] = []
     failures = 0
