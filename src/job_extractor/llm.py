@@ -8,14 +8,19 @@ from dataclasses import dataclass
 from typing import Literal, Protocol
 
 import anthropic
+import httpx
 import openai
+from google import genai
+from google.genai import errors as genai_errors
+from google.genai import types as genai_types
 from pydantic import BaseModel
 
 from job_extractor.settings import Provider, Settings
 
 DEFAULT_MODELS: dict[Provider, str] = {
-    "anthropic": "claude-opus-5-5",
+    "anthropic": "claude-haiku-5-5",
     "openai": "gpt-6-luna",
+    "gemini": "gemini-4-argon",
 }
 MAX_TOKENS = 16000
 
@@ -64,6 +69,8 @@ def make_client(settings: Settings) -> LLMClient:
         return AnthropicClient(settings.anthropic_api_key, model, settings.effort)
     if settings.provider == "openai":
         return OpenAIClient(settings.openai_api_key, model, settings.effort)
+    if settings.provider == "gemini":
+        return GeminiClient(settings.google_api_key, model, settings.effort)
     raise ValueError(f"unknown provider {settings.provider!r}")
 
 
@@ -156,8 +163,86 @@ class OpenAIClient:
         )
 
 
+class GeminiClient:
+    provider = "gemini"
+
+    # Gemini's thinking levels stop at HIGH, so the top three efforts share it.
+    THINKING_LEVELS = {
+        "low": "LOW",
+        "medium": "MEDIUM",
+        "high": "HIGH",
+        "xhigh": "HIGH",
+        "max": "HIGH",
+    }
+
+    def __init__(self, api_key, model: str, effort: str, sdk: genai.Client | None = None):
+        self.model = model
+        self.effort = effort
+        # The SDK makes a single attempt unless retry options are set, so tenacity in
+        # extract._call stays in charge of retries.
+        self.sdk = sdk or genai.Client(api_key=_secret(api_key))
+
+    def parse(self, system: str, user: str, schema: type[BaseModel]) -> LLMResponse:
+        config = genai_types.GenerateContentConfig(
+            system_instruction=system,
+            max_output_tokens=MAX_TOKENS,
+            response_mime_type="application/json",
+            response_schema=schema,
+            thinking_config=genai_types.ThinkingConfig(
+                thinking_level=self.THINKING_LEVELS[self.effort]
+            ),
+        )
+        try:
+            resp = self.sdk.models.generate_content(model=self.model, contents=user, config=config)
+        except genai_errors.APIError as e:
+            raise LLMError(f"gemini: {e}", e.code == 429 or e.code >= 500) from e
+        except httpx.TransportError as e:  # the SDK lets network errors through unwrapped
+            raise LLMError(f"gemini: {e!r}", transient=True) from e
+
+        usage = resp.usage_metadata
+        blocked = resp.prompt_feedback.block_reason if resp.prompt_feedback else None
+        candidate = resp.candidates[0] if resp.candidates else None
+        reason = candidate.finish_reason if candidate else None
+        text = resp.text or ""
+        if blocked:
+            stop, detail = "refusal", f"prompt blocked: {blocked.value}"
+        elif reason == genai_types.FinishReason.MAX_TOKENS:
+            stop, detail = "max_tokens", reason.value
+        elif reason in (genai_types.FinishReason.STOP, None):
+            stop, detail = "ok", None
+        elif reason in _GEMINI_REFUSALS:
+            stop, detail = "refusal", reason.value
+        else:
+            stop, detail = "other", reason.value
+        return LLMResponse(
+            # The SDK's own resp.parsed swallows validation errors, so validate here to raise
+            # ValidationError like the other adapters.
+            parsed=schema.model_validate_json(text) if stop == "ok" else None,
+            model=resp.model_version or self.model,
+            input_tokens=(usage.prompt_token_count or 0) if usage else 0,
+            # Thinking tokens are billed as output, as they are for the other providers.
+            output_tokens=(
+                (usage.candidates_token_count or 0) + (usage.thoughts_token_count or 0)
+                if usage
+                else 0
+            ),
+            stop=stop,
+            detail=detail,
+            text=text,
+        )
+
+
+_GEMINI_REFUSALS = {
+    genai_types.FinishReason.SAFETY,
+    genai_types.FinishReason.BLOCKLIST,
+    genai_types.FinishReason.PROHIBITED_CONTENT,
+    genai_types.FinishReason.SPII,
+    genai_types.FinishReason.RECITATION,
+}
+
+
 def _transient(e: Exception, sdk) -> bool:
-    """Both SDKs share the same exception hierarchy, so one check covers them."""
+    """The Anthropic and OpenAI SDKs share an exception hierarchy, so one check covers both."""
     if isinstance(e, sdk.RateLimitError | sdk.APIConnectionError):
         return True
     return isinstance(e, sdk.APIStatusError) and e.status_code >= 500

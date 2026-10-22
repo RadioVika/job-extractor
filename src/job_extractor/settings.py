@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-Provider = Literal["anthropic", "openai"]
+Provider = Literal["anthropic", "openai", "gemini"]
 
 
 class Settings(BaseSettings):
@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     # None lets the SDK resolve credentials itself (ANTHROPIC_API_KEY, `ant auth login` profile...)
     anthropic_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None
+    google_api_key: SecretStr | None = None
     effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
     prompt_version: str = "v1"
     # DEBUG adds the prompts and raw response text to the log.

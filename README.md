@@ -14,9 +14,10 @@ provider you use:
 ```sh
 ANTHROPIC_API_KEY=...
 OPENAI_API_KEY=...
+GOOGLE_API_KEY=...
 
 # Optional
-PROVIDER=anthropic        # anthropic (default) or openai
+PROVIDER=anthropic        # anthropic (default), openai or gemini
 MODEL=                    # empty = the provider's default model
 EFFORT=medium             # low, medium, high, xhigh, max
 LOG_LEVEL=INFO            # DEBUG also logs prompts and raw responses
@@ -28,6 +29,7 @@ LOG_LEVEL=INFO            # DEBUG also logs prompts and raw responses
 |-------------|-------------------|---------------------|
 | `anthropic` | `claude-opus-5-5` | `ANTHROPIC_API_KEY` |
 | `openai`    | `gpt-6-luna`      | `OPENAI_API_KEY`    |
+| `gemini`    | `gemini-4-argon`  | `GOOGLE_API_KEY`    |
 
 The provider and model come from (highest priority first):
 
@@ -38,6 +40,10 @@ The provider and model come from (highest priority first):
 If `--provider` picks a different provider than the one in `.env`, the `MODEL` from `.env` is
 ignored and that provider's default model is used, unless you also pass `--model`.
 
+`EFFORT` maps to each provider's reasoning setting. Gemini's thinking levels stop at `HIGH`,
+so `high`, `xhigh` and `max` all mean `HIGH` there. `gemini-4-argon` has no free-tier quota;
+on a free Google key use a Flash model, e.g. `--model gemini-3.8-flash`.
+
 ## Running extraction
 
 Runs the extractor on every posting in one split of `data/splits.json` and prints the parsed
@@ -46,6 +52,7 @@ postings plus run statistics (failures, repair rate, tokens, p95 latency):
 ```sh
 uv run python -m job_extractor.extract dev                        # default provider, antropic
 uv run python -m job_extractor.extract test --provider openai      # OpenAI, gpt-6-luna
+uv run python -m job_extractor.extract test --provider gemini --model gemini-3.8-flash
 uv run python -m job_extractor.extract test --provider anthropic --model claude-sonnet-5-5
 ```
 

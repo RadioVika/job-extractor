@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Job hunt assistant: collects job postings and extracts structured data from them with an LLM (Anthropic or OpenAI). Python 3.12, managed with `uv` (src layout, `uv_build` backend).
+Job hunt assistant: collects job postings and extracts structured data from them with an LLM (Anthropic, OpenAI or Gemini). Python 3.12, managed with `uv` (src layout, `uv_build` backend).
 
 ## Commands
 
@@ -23,8 +23,8 @@ Ruff: line length 100, rules `E F I B UP` (see `pyproject.toml`). Pre-commit run
 ## Architecture
 
 Extraction (`src/job_extractor/`):
-- `extract.py` turns a posting's plain text into a `JobPosting` (`schema.py`): one structured-output LLM call with tenacity retries on transient errors, one repair attempt if the output fails schema or content checks, then `check_salary` drops salary values not found in the text. Run it on a split: `uv run python -m job_extractor.extract dev [--provider openai] [--model NAME]`.
-- `llm.py` is the only module that imports a provider SDK. It defines the `LLMClient` protocol (`parse(system, user, schema) -> LLMResponse`), adapters for Anthropic (`messages.parse`) and OpenAI (`responses.parse`), `DEFAULT_MODELS`, and `make_client`. Adapters disable SDK retries and wrap SDK errors in `LLMError(transient=...)`; stop reasons map to `ok | refusal | max_tokens | other`.
+- `extract.py` turns a posting's plain text into a `JobPosting` (`schema.py`): one structured-output LLM call with tenacity retries on transient errors, one repair attempt if the output fails schema or content checks, then `check_salary` drops salary values not found in the text. Run it on a split: `uv run python -m job_extractor.extract dev [--provider openai|gemini] [--model NAME]`.
+- `llm.py` is the only module that imports a provider SDK. It defines the `LLMClient` protocol (`parse(system, user, schema) -> LLMResponse`), adapters for Anthropic (`messages.parse`), OpenAI (`responses.parse`) and Gemini (`google-genai` `models.generate_content` with a response schema; the adapter validates the JSON itself because the SDK's `parsed` swallows validation errors), `DEFAULT_MODELS`, and `make_client`. Adapters disable SDK retries (tenacity is pinned `>=9.1` because google-genai requires `<9.2`) and wrap SDK errors in `LLMError(transient=...)`; stop reasons map to `ok | refusal | max_tokens | other`.
 - `settings.py` is `pydantic-settings` reading the git-ignored `.env`: `PROVIDER` (anthropic default), `MODEL` (None = provider default), API keys, `EFFORT`, `PROMPT_VERSION`, `LOG_LEVEL`. CLI flags override it via `extract.load_settings`; switching provider on the CLI drops the `.env` model.
 - System prompts are `prompts/<version>.md`. `api.py` (FastAPI) is still an empty stub; `__init__.py` has a placeholder `main()`.
 
