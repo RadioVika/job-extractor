@@ -6,7 +6,14 @@ import pytest
 from pydantic import ValidationError
 from tenacity import wait_none
 
-from job_extractor.extract import ExtractionError, _call, check_salary, extract, load_prompt
+from job_extractor.extract import (
+    ExtractionError,
+    _call,
+    check_salary,
+    extract,
+    load_prompt,
+    load_split,
+)
 from job_extractor.schema import JobPosting
 from job_extractor.settings import Settings
 
@@ -175,3 +182,12 @@ def test_check_salary(text, salary, expected):
     posting = POSTING.model_copy(update={"salary_min_eur": salary[0], "salary_max_eur": salary[1]})
     result = check_salary(text, posting)
     assert (result.salary_min_eur, result.salary_max_eur) == expected
+
+
+def test_load_split(tmp_path):
+    splits = tmp_path / "splits.json"
+    splits.write_text('{"seed": 1, "dev": ["p001", "p002"], "test": ["p003"]}')
+    assert load_split("dev", splits) == ["p001", "p002"]
+    assert load_split("test", splits) == ["p003"]
+    with pytest.raises(ValueError):
+        load_split("seed", splits)

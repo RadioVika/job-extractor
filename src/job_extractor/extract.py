@@ -1,6 +1,8 @@
 """Extract a structured JobPosting from a posting's plain text with LLM."""
 
+import argparse
 import asyncio
+import json
 import logging
 import math
 import re
@@ -27,6 +29,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PROMPTS = ROOT / "prompts"
 LABELS = ROOT / "data" / "labels"
 RAW = ROOT / "data" / "raw"
+SPLITS = ROOT / "data" / "splits.json"
 CONCURRENCY = 5
 
 logger = logging.getLogger(__name__)
@@ -319,14 +322,27 @@ async def _extract_all(
     )
 
 
-def main(labels_dir: Path = LABELS, raw_dir: Path = RAW) -> None:
-    """Extract every posting that has a label in labels_dir and print run statistics."""
+def load_split(split: str, splits_file: Path = SPLITS) -> list[str]:
+    """Return the posting IDs in one split ("dev" or "test") of splits_file."""
+    splits = json.loads(splits_file.read_text(encoding="utf-8"))
+    if split not in splits or split == "seed":
+        raise ValueError(f"unknown split {split!r}; expected one of: dev, test")
+    return splits[split]
+
+
+def main(
+    split: str,
+    labels_dir: Path = LABELS,
+    raw_dir: Path = RAW,
+    splits_file: Path = SPLITS,
+) -> None:
+    """Extract every labeled posting in the given split and print run statistics."""
     settings = Settings()
     logging.basicConfig(
         level=settings.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
     client = make_client(settings)
-    paths = sorted(labels_dir.glob("*.json"))
+    paths = [labels_dir / f"{posting_id}.json" for posting_id in load_split(split, splits_file)]
     raws = [raw_dir / f"{label.stem}.txt" for label in paths]
 
     outcomes = asyncio.run(_extract_all(raws, client, settings))
@@ -345,7 +361,8 @@ def main(labels_dir: Path = LABELS, raw_dir: Path = RAW) -> None:
 
     repaired = sum(r.repaired for r in results)
     tokens = sum(r.input_tokens + r.output_tokens for r in results)
-    print(f"\nfiles:        {len(paths)}")
+    print(f"\nsplit:        {split}")
+    print(f"files:        {len(paths)}")
     print(f"failures:     {failures}")
     if paths:
         print(f"repair rate:  {repaired / len(paths):.1%} ({repaired}/{len(paths)})")
@@ -355,5 +372,7 @@ def main(labels_dir: Path = LABELS, raw_dir: Path = RAW) -> None:
 
 
 if __name__ == "__main__":
-    # uv run python -m job_extractor.extract
-    main()
+    # uv run python -m job_extractor.extract dev
+    parser = argparse.ArgumentParser(description="Run the extractor on one split of the labels.")
+    parser.add_argument("split", choices=["dev", "test"], help="which split from data/splits.json")
+    main(parser.parse_args().split)
