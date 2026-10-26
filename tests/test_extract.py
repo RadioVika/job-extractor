@@ -5,7 +5,6 @@ from tenacity import wait_none
 from job_extractor.extract import (
     ExtractionError,
     _call,
-    check_salary,
     extract,
     load_prompt,
     load_settings,
@@ -85,15 +84,6 @@ def test_extract_returns_parsed_posting():
     assert client.kwargs["user"].startswith("<posting>\nML Engineer")
 
 
-def test_extract_flags_repaired_salary():
-    posting = POSTING.model_copy(update={"salary_min_eur": 80000})
-    client = FakeClient(fake_response(parsed_output=posting))
-    result = extract("No salary here.", client, Settings())
-
-    assert result.posting.salary_min_eur is None
-    assert result.repaired
-
-
 @pytest.mark.parametrize("stop", ["refusal", "max_tokens"])
 def test_extract_raises_on_bad_stop(stop):
     client = FakeClient(fake_response(stop=stop, parsed_output=None))
@@ -157,24 +147,6 @@ def test_extract_does_not_retry_permanent_error():
     with pytest.raises(LLMError):
         extract("x", client, Settings())
     assert len(client.calls) == 1
-
-
-@pytest.mark.parametrize(
-    ("text", "salary", "expected"),
-    [
-        ("Austria: €90,000 - €168,000 gross annually", (90000, 168000), (90000, 168000)),
-        ("100.000 € Jahresgehalt.", (100000, 100000), (100000, 100000)),
-        ("100k Jahresgehalt", (100000, 100000), (100000, 100000)),
-        ("Salary: €6,000 per month", (72000, 72000), (72000, 72000)),
-        ("Competitive salary and stock options.", (80000, 80000), (None, None)),
-        ("From €70,000, depending on experience.", (70000, 90000), (70000, None)),
-        ("No salary here.", (None, None), (None, None)),
-    ],
-)
-def test_check_salary(text, salary, expected):
-    posting = POSTING.model_copy(update={"salary_min_eur": salary[0], "salary_max_eur": salary[1]})
-    result = check_salary(text, posting)
-    assert (result.salary_min_eur, result.salary_max_eur) == expected
 
 
 def test_load_split(tmp_path):

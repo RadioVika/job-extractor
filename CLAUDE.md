@@ -16,6 +16,8 @@ uv run ruff check --fix . && uv run ruff format .         # lint + format
 uv run pre-commit run --all-files        # all hooks (only checks git-tracked files)
 uv run job-extractor                     # console entry point -> job_extractor:main
 uv run python scripts/fetch_postings.py <greenhouse-board> [...]   # e.g. getyourguide
+uv run python -m evaluation.run dev [--provider ...] [--model ...]   # extract + score a split
+uv run python -m evaluation.run dev --predictions data/cache/<run>.jsonl   # re-score, no LLM
 ```
 
 Ruff: line length 100, rules `E F I B UP` (see `pyproject.toml`). Pre-commit runs the generic `pre-commit-hooks` checks plus `ruff-check --fix` and `ruff-format`.
@@ -23,7 +25,7 @@ Ruff: line length 100, rules `E F I B UP` (see `pyproject.toml`). Pre-commit run
 ## Architecture
 
 Extraction (`src/job_extractor/`):
-- `extract.py` turns a posting's plain text into a `JobPosting` (`schema.py`): one structured-output LLM call with tenacity retries on transient errors, one repair attempt if the output fails schema or content checks, then `check_salary` drops salary values not found in the text. Run it on a split: `uv run python -m job_extractor.extract dev [--provider openai|gemini|llama] [--model NAME]`; `main` runs 5 postings concurrently (1 for llama).
+- `extract.py` turns a posting's plain text into a `JobPosting` (`schema.py`): one structured-output LLM call with tenacity retries on transient errors, one repair attempt if the output fails schema or content checks. Salary values are not checked against the text here; evaluation reports that. Run it on a split: `uv run python -m job_extractor.extract dev [--provider openai|gemini|llama] [--model NAME]`; `main` runs 5 postings concurrently (1 for llama).
 - `llm.py` is the only module that imports a provider SDK. It defines the `LLMClient` protocol (`parse(system, user, schema) -> LLMResponse`), adapters for Anthropic (`messages.parse`), OpenAI (`responses.parse`) and Gemini (`google-genai` `models.generate_content` with a response schema; the adapter validates the JSON itself because the SDK's `parsed` swallows validation errors), llama (the `openai` SDK's `chat.completions.create` with a `json_schema` response format against a local llama-server; `parse` isn't used because it raises on a length stop; `reasoning_effort` is `LLAMA_REASONING` (none|low|medium|xhigh) if set, else `EFFORT` with high/xhigh/max mapped to `xhigh` because Bonsai 2 rejects `high`; default model `bonsai-2`), `DEFAULT_MODELS`, and `make_client`. Adapters disable SDK retries (tenacity is pinned `>=9.1` because google-genai requires `<9.2`) and wrap SDK errors in `LLMError(transient=...)`; stop reasons map to `ok | refusal | max_tokens | other`.
 - `llama_server.py`: `extract.main` wraps llama runs in `llama_server(settings)`, which reuses a server already healthy on `LLAMA_PORT`, or starts `LLAMA_SERVER_BIN` with `LLAMA_MODEL_PATH` (aliased to the model name), polls `/health`, and terminates it afterwards. Bonsai 2's ternary GGUF needs PrismML's llama.cpp fork, not stock llama.cpp or Ollama.
 - `settings.py` is `pydantic-settings` reading the git-ignored `.env`: `PROVIDER` (anthropic default), `MODEL` (None = provider default), API keys, `LLAMA_*` server settings, `EFFORT`, `PROMPT_VERSION`, `LOG_LEVEL`. CLI flags override it via `extract.load_settings`; switching provider on the CLI drops the `.env` model.
@@ -34,5 +36,11 @@ Data ingestion currently lives outside the package, in `scripts/fetch_postings.p
 - Each posting's HTML is converted to plain text and written to `data/raw/pNNN.txt` (first line is the title, then the location, a blank line, then the body). `data/raw/` is git-ignored.
 - One metadata record per posting is appended to `data/postings.jsonl` (`id, url, company, title, date, source`). This file is tracked. IDs are assigned sequentially from the current line count, and URLs already in the index are skipped, so re-running is idempotent per URL.
 - Paths are relative, so run the script from the repo root. `beautifulsoup4` is only in the `dev` dependency group.
+
+Evaluation (`src/evaluation/`, a second package; `pyproject.toml` lists both in `module-name`):
+- `run.py` extracts a split with `extract._extract_all`, writes one JSON line per posting (prediction or error) to the git-ignored `data/cache/<time>_<split>_<provider>_<model>_<prompt>.jsonl`, then scores it and writes `<same name>_metrics.json` next to it. Failed extractions are listed and left out of scoring.
+- `metrics.py`: `seniority`, `role_type`, `work_mode` and `german` are scored by exact match (accuracy + misses; `ACCURACY_FIELDS`). Skills: micro and macro precision/recall, and two "invented" rates over predicted skills: not in the label (= 1 - micro precision) and not in the posting text.
+- `salary.py`: `ungrounded_salary` finds predicted salary values with no matching amount in the text (as written, or monthly = value / 12); `score_salary` reports the share of predicted values not in the text.
+- `grounding.py`: one broad regex per `Skill`, from the wording table in `docs/LABELING_GUIDE.md`, used for the not-in-text check. Add a pattern when adding a `Skill` (a test enforces it).
 
 Labels are hand-made in `data/labels/pNNN.json` (`scripts/label_ui.py`, guide in `docs/LABELING_GUIDE.md`); `scripts/split_labels.py` writes the dev/test split to `data/splits.json`.
