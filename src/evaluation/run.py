@@ -301,7 +301,9 @@ def main(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate the extractor on one split.")
-    parser.add_argument("split", choices=["dev", "test"], help="which split from data/splits.json")
+    parser.add_argument(
+        "split", choices=["dev", "dev_short", "test"], help="which split from data/splits.json"
+    )
     parser.add_argument("--provider", choices=list(get_args(Provider)), help="LLM provider")
     parser.add_argument("--model", help="model name (default: the provider's default)")
     parser.add_argument(

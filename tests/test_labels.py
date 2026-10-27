@@ -20,3 +20,5 @@ def test_splits_cover_all_labels():
     assert len(test) == 50
     assert not dev & test
     assert dev | test == {p.stem for p in LABELS.glob("*.json")}
+    assert len(splits["dev_short"]) == 20
+    assert set(splits["dev_short"]) <= dev

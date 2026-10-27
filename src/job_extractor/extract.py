@@ -341,7 +341,9 @@ def main(
 if __name__ == "__main__":
     # uv run python -m job_extractor.extract dev --provider openai
     parser = argparse.ArgumentParser(description="Run the extractor on one split of the labels.")
-    parser.add_argument("split", choices=["dev", "test"], help="which split from data/splits.json")
+    parser.add_argument(
+        "split", choices=["dev", "dev_short", "test"], help="which split from data/splits.json"
+    )
     parser.add_argument(
         "--provider",
         choices=list(get_args(Provider)),
