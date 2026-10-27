@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-Provider = Literal["anthropic", "openai", "gemini", "llama"]
+Provider = Literal["anthropic", "openai", "llama"]
 # Reasoning levels Bonsai 2's chat template accepts ("high" returns HTTP 500).
 LlamaReasoning = Literal["none", "low", "medium", "xhigh"]
 
@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     # None lets the SDK resolve credentials itself (ANTHROPIC_API_KEY, `ant auth login` profile...)
     anthropic_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None
-    google_api_key: SecretStr | None = None
     # Local model: extract.main starts llama-server with this GGUF for the run.
     llama_server_bin: str = "llama-server"
     llama_model_path: Path | None = None

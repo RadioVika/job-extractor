@@ -3,8 +3,16 @@ import json
 import pytest
 
 from evaluation.grounding import SKILL_PATTERNS, is_grounded
-from evaluation.metrics import ACCURACY_FIELDS, Example, score_accuracy, score_salary, score_skills
-from evaluation.run import load_examples
+from evaluation.metrics import (
+    ACCURACY_FIELDS,
+    Example,
+    score_accuracy,
+    score_run,
+    score_salary,
+    score_skills,
+)
+from evaluation.prices import Price, price_for
+from evaluation.run import TABLE_COLUMNS, load_examples, markdown_table, metrics_json
 from evaluation.salary import SALARY_FIELDS, ungrounded_salary
 from job_extractor.schema import JobPosting, Skill
 
@@ -106,6 +114,8 @@ def test_skills_two_kinds_of_invented():
     assert report.invented_not_in_label == pytest.approx(2 / 3)
     assert report.invented_not_in_text == pytest.approx(1 / 3)
     assert report.ungrounded == {"p1": [Skill.pytorch]}
+    assert report.extra == {"p1": [Skill.mlops, Skill.pytorch]}
+    assert report.missing == {}
 
 
 def test_skills_empty_sets():
@@ -171,7 +181,92 @@ def test_load_examples(tmp_path):
         + "\n"
     )
     examples, failed = load_examples(predictions, labels, raw)
-    assert failed == ["p2"]
+    assert failed == {"p2": "ExtractionError: boom"}
     assert [ex.posting_id for ex in examples] == ["p1"]
     assert examples[0].gold.seniority == "senior"
     assert examples[0].text == "Python"
+
+
+def test_score_run():
+    records = [
+        {"id": "p1", "posting": {}, "latency_s": 1.0, "repaired": False},
+        {"id": "p2", "posting": {}, "latency_s": 3.0, "repaired": True},
+        {"id": "p3", "posting": {}, "latency_s": 2.0, "repaired": False},
+        {"id": "p4", "error": "ExtractionError: boom"},
+    ]
+    run = score_run(records)
+    assert run.failed == {"p4": "ExtractionError: boom"}
+    assert run.schema_valid_rate == 0.75
+    assert run.repair_retry_rate == 0.25
+    assert (run.latency_p50, run.latency_p95) == (2.0, 3.0)
+    empty = score_run([])
+    assert empty.schema_valid_rate is None and empty.latency_p95 is None
+    assert run.cost_per_1000 is None  # no price given
+
+
+def test_cost_per_1000():
+    records = [
+        {"id": "p1", "posting": {}, "input_tokens": 3000, "output_tokens": 400},
+        {"id": "p2", "posting": {}, "input_tokens": 5000, "output_tokens": 600},
+        {"id": "p3", "error": "ExtractionError: boom"},
+    ]
+    run = score_run(records, Price(input=1.0, output=10.0))
+    # Mean posting: 4000 in + 500 out = $0.004 + $0.005; failed extractions are left out.
+    assert run.cost_per_1000 == pytest.approx(9.0)
+
+
+def test_price_for(tmp_path):
+    from datetime import date
+
+    prices = tmp_path / "prices.yaml"
+    prices.write_text(
+        "- {model: m, date: 2026-01-01, price: {input: 1, output: 2}}\n"
+        "- {model: m, date: 2026-06-01, price: {input: 3, output: 4}}\n"
+    )
+    assert price_for("m", prices, date(2026, 3, 1)) == Price(1.0, 2.0)
+    assert price_for("m", prices, date(2026, 7, 1)) == Price(3.0, 4.0)
+    assert price_for("m", prices, date(2025, 1, 1)) is None
+    assert price_for("other", prices) is None
+
+
+def test_prices_cover_default_models():
+    from job_extractor.llm import DEFAULT_MODELS
+
+    for model in DEFAULT_MODELS.values():
+        assert price_for(model) is not None, model
+
+
+def test_metrics_json_and_table(tmp_path):
+    examples = [
+        example("p1", gold=["python"], pred=["python"], text="Python"),
+        example("p2", gold=["python", "sql"], pred=["python", "pytorch"], text="Python, SQL"),
+    ]
+    records = [
+        {"id": "p1", "posting": {}, "latency_s": 1.0, "repaired": False},
+        {"id": "p2", "posting": {}, "latency_s": 2.0, "repaired": False},
+        {"id": "p3", "error": "ExtractionError: boom"},
+    ]
+    accuracy = [score_accuracy(examples, f) for f in ACCURACY_FIELDS]
+    metrics = metrics_json(
+        tmp_path / "run.jsonl",
+        score_run(records),
+        accuracy,
+        score_skills(examples),
+        score_salary(examples),
+    )
+    assert list(metrics["summary"]) == list(TABLE_COLUMNS)
+    assert metrics["summary"]["skills_precision"] == 2 / 3
+    assert metrics["errors"] == {
+        "p2": {
+            "skills_missing": ["sql"],
+            "skills_extra": ["pytorch"],
+            "skills_not_in_text": ["pytorch"],
+        },
+        "p3": {"extraction_error": "ExtractionError: boom"},
+    }
+    table = markdown_table("openai/gpt", metrics["summary"]).splitlines()
+    assert len(table) == 3
+    assert len({len(line) for line in table}) == 1  # columns line up
+    cells = [c.strip() for c in table[2].strip("|").split("|")]
+    assert cells[:4] == ["openai/gpt", "66.7%", "66.7%", "33.3%"]
+    assert cells[-3:] == ["1.00 s", "2.00 s", "n/a"]

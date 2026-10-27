@@ -14,10 +14,9 @@ provider you use:
 ```sh
 ANTHROPIC_API_KEY=...
 OPENAI_API_KEY=...
-GOOGLE_API_KEY=...
 
 # Optional
-PROVIDER=anthropic        # anthropic (default), openai, gemini or llama
+PROVIDER=anthropic        # anthropic (default), openai or llama
 MODEL=                    # empty = the provider's default model
 EFFORT=medium             # low, medium, high, xhigh, max
 LOG_LEVEL=INFO            # DEBUG also logs prompts and raw responses
@@ -36,7 +35,6 @@ LLAMA_REASONING=                 # none, low, medium or xhigh; empty = follow EF
 |-------------|-------------------|---------------------|
 | `anthropic` | `claude-opus-5-5` | `ANTHROPIC_API_KEY` |
 | `openai`    | `gpt-6-luna`      | `OPENAI_API_KEY`    |
-| `gemini`    | `gemini-4-argon`  | `GOOGLE_API_KEY`    |
 | `llama`     | `bonsai-2`        | none (local)        |
 
 The provider and model come from (highest priority first):
@@ -48,10 +46,7 @@ The provider and model come from (highest priority first):
 If `--provider` picks a different provider than the one in `.env`, the `MODEL` from `.env` is
 ignored and that provider's default model is used, unless you also pass `--model`.
 
-`EFFORT` maps to each provider's reasoning setting. Gemini's thinking levels stop at `HIGH`,
-so `high`, `xhigh` and `max` all mean `HIGH` there. `gemini-4-argon` has no free-tier quota;
-on a free Google key use a Flash model, e.g. `--model gemini-3.8-flash`. For the local
-`llama` provider, `EFFORT` is sent as `reasoning_effort`. Bonsai 2 only accepts `low`, `medium`
+`EFFORT` maps to each provider's reasoning setting. For the local `llama` provider, `EFFORT` is sent as `reasoning_effort`. Bonsai 2 only accepts `low`, `medium`
 and `xhigh`, so `high`, `xhigh` and `max` all mean `xhigh`. Its reasoning counts against the
 output limit, and at `xhigh` it more often runs out before answering, so `medium` (the default)
 is the recommended setting. `LLAMA_REASONING` overrides that mapping for the local model only;
@@ -96,7 +91,6 @@ postings plus run statistics (failures, repair rate, tokens, p95 latency):
 ```sh
 uv run python -m job_extractor.extract dev                        # default provider, antropic
 uv run python -m job_extractor.extract test --provider openai      # OpenAI, gpt-6-luna
-uv run python -m job_extractor.extract test --provider gemini --model gemini-3.8-flash
 uv run python -m job_extractor.extract test --provider anthropic --model claude-sonnet-5-5
 ```
 
@@ -120,3 +114,11 @@ uv run ruff check --fix . && uv run ruff format .
 
 # Testing Dataset
 Raw data is available per request
+
+# Metrics
+
+| Model                      | Skills precision | Skills recall | Skills invented | Seniority accuracy | Role type accuracy | Work mode accuracy | German accuracy | Schema-valid rate | Repair-retry rate | p50 latency | p95 latency | Cost / 1000 postings |
+| -------------------------- | ---------------- | ------------- | --------------- | ------------------ | ------------------ | ------------------ | --------------- | ----------------- | ----------------- | ----------- | ----------- | -------------------- |
+| openai/gpt-6-luna          |            74.6% |         89.9% |            6.3% |              78.0% |              86.0% |              83.0% |           90.0% |            100.0% |              0.0% |      4.82 s |      7.84 s |                $0.53 |
+| anthropic/claude-haiku-5-5 |            77.0% |         88.3% |            3.1% |              78.0% |              85.0% |              81.0% |           90.0% |            100.0% |              1.0% |      5.32 s |      7.34 s |                $1.10 |
+| llama/bonsai-2             |            66.1% |         58.7% |           17.3% |              66.0% |              80.0% |              70.0% |           85.0% |            100.0% |              0.0% |      9.06 s |     12.43 s |                $0.00 |

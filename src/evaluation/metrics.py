@@ -1,9 +1,11 @@
 """Score extracted postings against the hand-made labels. Pure functions, no I/O."""
 
+import math
 from collections import Counter
 from dataclasses import dataclass, field
 
 from evaluation.grounding import is_grounded
+from evaluation.prices import Price
 from evaluation.salary import SALARY_FIELDS, ungrounded_salary
 from job_extractor.schema import JobPosting, Skill
 
@@ -69,6 +71,10 @@ class SkillsReport:
     macro_recall: float | None
     # posting_id -> skills predicted that the posting text never mentions
     ungrounded: dict[str, list[Skill]] = field(default_factory=dict)
+    # posting_id -> skills predicted but not in the label (false positives)
+    extra: dict[str, list[Skill]] = field(default_factory=dict)
+    # posting_id -> skills in the label but not predicted (false negatives)
+    missing: dict[str, list[Skill]] = field(default_factory=dict)
 
     @property
     def micro_precision(self) -> float | None:
@@ -87,6 +93,67 @@ class SkillsReport:
     def invented_not_in_text(self) -> float | None:
         """Share of predicted skills with no supporting wording in the posting text."""
         return _ratio(self.not_in_text, self.predicted)
+
+
+@dataclass
+class RunReport:
+    """Reliability and speed of one extraction run, over every posting in the split."""
+
+    n: int
+    # posting_id -> error, for postings that ended without a valid JobPosting
+    failed: dict[str, str]
+    repaired: int  # valid outputs that needed the repair retry
+    latencies: list[float]  # seconds per valid output, repair retry included
+    # USD per valid output, repair retry included; empty if the model has no price
+    costs: list[float] = field(default_factory=list)
+
+    @property
+    def schema_valid_rate(self) -> float | None:
+        """Share of postings that ended with an output passing the schema and content checks."""
+        return _ratio(self.n - len(self.failed), self.n)
+
+    @property
+    def repair_retry_rate(self) -> float | None:
+        return _ratio(self.repaired, self.n)
+
+    @property
+    def latency_p50(self) -> float | None:
+        return _percentile(self.latencies, 50)
+
+    @property
+    def latency_p95(self) -> float | None:
+        return _percentile(self.latencies, 95)
+
+    @property
+    def cost_per_1000(self) -> float | None:
+        """USD for 1000 postings at the mean cost of a valid output."""
+        mean = _mean(self.costs)
+        return None if mean is None else mean * 1000
+
+
+def _percentile(values: list[float], pct: int) -> float | None:
+    """Nearest-rank percentile."""
+    if not values:
+        return None
+    ordered = sorted(values)
+    return ordered[max(math.ceil(pct / 100 * len(ordered)), 1) - 1]
+
+
+def score_run(records: list[dict], price: Price | None = None) -> RunReport:
+    """Summarise the saved records of a run (one per posting: a prediction or an error).
+
+    Costs need the model's price; failed extractions don't record tokens, so they're left out.
+    """
+    ok = [r for r in records if "posting" in r]
+    return RunReport(
+        n=len(records),
+        failed={r["id"]: r["error"] for r in records if "posting" not in r},
+        repaired=sum(bool(r.get("repaired")) for r in ok),
+        latencies=[r["latency_s"] for r in ok if r.get("latency_s") is not None],
+        costs=[]
+        if price is None
+        else [price.cost(r["input_tokens"], r["output_tokens"]) for r in ok],
+    )
 
 
 def _ratio(num: int, den: int) -> float | None:
@@ -123,6 +190,8 @@ def _per_posting(pred: set[Skill], gold: set[Skill]) -> tuple[float | None, floa
 
 def score_skills(examples: list[Example]) -> SkillsReport:
     ungrounded: dict[str, list[Skill]] = {}
+    extra: dict[str, list[Skill]] = {}
+    missing_from_pred: dict[str, list[Skill]] = {}
     totals: Counter[str] = Counter()
     precisions: list[float] = []
     recalls: list[float] = []
@@ -132,6 +201,10 @@ def score_skills(examples: list[Example]) -> SkillsReport:
         missing = sorted(s for s in pred if not is_grounded(s, ex.text))
         if missing:
             ungrounded[ex.posting_id] = missing
+        if pred - gold:
+            extra[ex.posting_id] = sorted(pred - gold)
+        if gold - pred:
+            missing_from_pred[ex.posting_id] = sorted(gold - pred)
 
         totals["predicted"] += len(pred)
         totals["tp"] += len(pred & gold)
@@ -156,6 +229,8 @@ def score_skills(examples: list[Example]) -> SkillsReport:
         macro_precision=_mean(precisions),
         macro_recall=_mean(recalls),
         ungrounded=ungrounded,
+        extra=extra,
+        missing=missing_from_pred,
     )
 
 

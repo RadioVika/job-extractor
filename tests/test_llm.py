@@ -5,13 +5,10 @@ import httpx
 import httpx2
 import openai
 import pytest
-from google.genai import errors as genai_errors
-from google.genai.types import BlockedReason, FinishReason
 from pydantic import ValidationError
 
 from job_extractor.llm import (
     AnthropicClient,
-    GeminiClient,
     LlamaClient,
     LLMError,
     OpenAIClient,
@@ -55,7 +52,6 @@ class FakeSDK:
 def test_resolve_model():
     assert resolve_model(Settings(provider="anthropic", model=None)) == "claude-haiku-5-5"
     assert resolve_model(Settings(provider="openai", model=None)) == "gpt-6-luna"
-    assert resolve_model(Settings(provider="gemini", model=None)) == "gemini-4-argon"
     assert resolve_model(Settings(provider="llama", model=None)) == "bonsai-2"
     assert resolve_model(Settings(provider="openai", model="gpt-x")) == "gpt-x"
 
@@ -65,12 +61,11 @@ def test_resolve_model():
     [
         ("anthropic", AnthropicClient),
         ("openai", OpenAIClient),
-        ("gemini", GeminiClient),
         ("llama", LlamaClient),
     ],
 )
 def test_make_client(provider, cls):
-    keys = {f"{name}_api_key": "test-key" for name in ("anthropic", "openai", "google")}
+    keys = {f"{name}_api_key": "test-key" for name in ("anthropic", "openai")}
     client = make_client(Settings(provider=provider, model=None, effort="high", **keys))
     assert isinstance(client, cls)
     assert client.provider == provider
@@ -199,81 +194,6 @@ def openai_error(cls, status):
 )
 def test_openai_wraps_errors(error, transient):
     client = OpenAIClient(None, "m", "low", sdk=FakeSDK("responses.parse", error))
-    with pytest.raises(LLMError) as info:
-        client.parse("s", "u", JobPosting)
-    assert info.value.transient is transient
-    assert info.value.__cause__ is error
-
-
-# Gemini
-
-
-def gemini_response(finish_reason="STOP", text=None, block_reason=None):
-    candidates = [] if block_reason else [SimpleNamespace(finish_reason=finish_reason)]
-    return SimpleNamespace(
-        candidates=candidates,
-        prompt_feedback=SimpleNamespace(block_reason=block_reason) if block_reason else None,
-        text=POSTING.model_dump_json() if text is None else text,
-        model_version="gemini-test",
-        usage_metadata=SimpleNamespace(
-            prompt_token_count=100, candidates_token_count=15, thoughts_token_count=5
-        ),
-    )
-
-
-def test_gemini_parse():
-    sdk = FakeSDK("models.generate_content", gemini_response())
-    response = GeminiClient(None, "gemini-x", "xhigh", sdk=sdk).parse("sys", "user", JobPosting)
-
-    assert response.parsed == POSTING
-    assert (response.model, response.stop) == ("gemini-test", "ok")
-    assert (response.input_tokens, response.output_tokens) == (100, 20)
-    assert sdk.kwargs["model"] == "gemini-x"
-    assert sdk.kwargs["contents"] == "user"
-    config = sdk.kwargs["config"]
-    assert config.system_instruction == "sys"
-    assert config.response_schema is JobPosting
-    assert config.thinking_config.thinking_level == "HIGH"
-
-
-def test_gemini_invalid_output_raises_validation_error():
-    sdk = FakeSDK("models.generate_content", gemini_response(text='{"role_type": "x"}'))
-    with pytest.raises(ValidationError):
-        GeminiClient(None, "m", "low", sdk=sdk).parse("s", "u", JobPosting)
-
-
-@pytest.mark.parametrize(
-    ("finish_reason", "expected"),
-    [
-        (FinishReason.MAX_TOKENS, "max_tokens"),
-        (FinishReason.SAFETY, "refusal"),
-        (FinishReason.OTHER, "other"),
-    ],
-)
-def test_gemini_stop(finish_reason, expected):
-    sdk = FakeSDK("models.generate_content", gemini_response(finish_reason, text=""))
-    response = GeminiClient(None, "m", "low", sdk=sdk).parse("s", "u", JobPosting)
-    assert (response.stop, response.parsed) == (expected, None)
-
-
-def test_gemini_blocked_prompt():
-    response_ = gemini_response(text="", block_reason=BlockedReason.PROHIBITED_CONTENT)
-    sdk = FakeSDK("models.generate_content", response_)
-    response = GeminiClient(None, "m", "low", sdk=sdk).parse("s", "u", JobPosting)
-    assert (response.stop, response.detail) == ("refusal", "prompt blocked: PROHIBITED_CONTENT")
-
-
-@pytest.mark.parametrize(
-    ("error", "transient"),
-    [
-        (genai_errors.ClientError(429, {}), True),
-        (genai_errors.ServerError(503, {}), True),
-        (httpx.ConnectError("boom"), True),
-        (genai_errors.ClientError(403, {}), False),
-    ],
-)
-def test_gemini_wraps_errors(error, transient):
-    client = GeminiClient(None, "m", "low", sdk=FakeSDK("models.generate_content", error))
     with pytest.raises(LLMError) as info:
         client.parse("s", "u", JobPosting)
     assert info.value.transient is transient

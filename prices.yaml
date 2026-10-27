@@ -1,0 +1,16 @@
+# List prices in USD per 1M tokens, standard tier, no caching or batch discounts.
+# `date` is the day the price takes effect (or was checked). A model may have several
+# entries; evaluation uses the latest one that isn't in the future.
+
+- model: claude-haiku-5-5
+  date: 2026-10-27
+  price: {input: 0.10, output: 0.50}  # prompts up to 100K tokens
+
+- model: gpt-6-luna
+  date: 2026-10-27
+  price: {input: 0.10, output: 0.50}
+
+# Runs locally on llama-server, no API bill.
+- model: bonsai-2
+  date: 2026-10-27
+  price: {input: 0.00, output: 0.00}

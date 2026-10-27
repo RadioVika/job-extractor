@@ -1,4 +1,4 @@
-"""Run the extractor on a split, save the predictions, and score seniority and skills.
+"""Run the extractor on a split, save the predictions, and score them against the labels.
 
 uv run python -m evaluation.run dev [--provider openai] [--model NAME]
 uv run python -m evaluation.run dev --predictions data/cache/<run>.jsonl   # re-score, no LLM
@@ -11,7 +11,6 @@ import logging
 import re
 import sys
 from contextlib import nullcontext
-from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import get_args
@@ -20,12 +19,15 @@ from evaluation.metrics import (
     ACCURACY_FIELDS,
     AccuracyReport,
     Example,
+    RunReport,
     SalaryReport,
     SkillsReport,
     score_accuracy,
+    score_run,
     score_salary,
     score_skills,
 )
+from evaluation.prices import price_for
 from job_extractor.extract import (
     CONCURRENCY,
     LABELS,
@@ -99,16 +101,20 @@ def run_predictions(
     return out
 
 
+def load_records(predictions: Path) -> list[dict]:
+    lines = predictions.read_text(encoding="utf-8").splitlines()
+    return [json.loads(line) for line in lines if line.strip()]
+
+
 def load_examples(
     predictions: Path, labels_dir: Path = LABELS, raw_dir: Path = RAW
-) -> tuple[list[Example], list[str]]:
-    """Pair each saved prediction with its label and text; also return the failed IDs."""
-    examples, failed = [], []
-    for line in predictions.read_text(encoding="utf-8").splitlines():
-        record = json.loads(line)
+) -> tuple[list[Example], dict[str, str]]:
+    """Pair each saved prediction with its label and text; also return failed ID -> error."""
+    examples, failed = [], {}
+    for record in load_records(predictions):
         posting_id = record["id"]
         if "posting" not in record:
-            failed.append(posting_id)
+            failed[posting_id] = record.get("error", "")
             continue
         examples.append(
             Example(
@@ -127,10 +133,26 @@ def _pct(value: float | None) -> str:
     return "n/a" if value is None else f"{value:.1%}"
 
 
+def _secs(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.2f} s"
+
+
+def _usd(value: float | None) -> str:
+    return "n/a" if value is None else f"${value:.2f}"
+
+
 def report(
-    accuracy: list[AccuracyReport], skills: SkillsReport, salary: SalaryReport, failed: list[str]
+    run: RunReport, accuracy: list[AccuracyReport], skills: SkillsReport, salary: SalaryReport
 ) -> str:
-    lines = [f"scored postings:   {skills.n} (failed extractions: {len(failed)})", "", "accuracy"]
+    lines = [
+        f"scored postings:   {skills.n} (failed extractions: {len(run.failed)})",
+        f"schema-valid:      {_pct(run.schema_valid_rate)} ({run.n - len(run.failed)}/{run.n})",
+        f"repair retries:    {_pct(run.repair_retry_rate)} ({run.repaired}/{run.n})",
+        f"latency:           p50 {_secs(run.latency_p50)}, p95 {_secs(run.latency_p95)}",
+        f"cost:              {_usd(run.cost_per_1000)} per 1000 postings",
+        "",
+        "accuracy",
+    ]
     lines += [f"  {r.field + ':':<17}{_pct(r.accuracy)} ({r.correct}/{r.n})" for r in accuracy]
     lines += [
         "",
@@ -150,42 +172,103 @@ def report(
     return "\n".join(lines)
 
 
+def summary(run: RunReport, accuracy: list[AccuracyReport], skills: SkillsReport) -> dict:
+    """The headline numbers of a run, in README table order. Skill scores are micro averages;
+    "invented" is the share of predicted skills the posting text never mentions."""
+    return {
+        "skills_precision": skills.micro_precision,
+        "skills_recall": skills.micro_recall,
+        "skills_invented": skills.invented_not_in_text,
+        **{f"{r.field}_accuracy": r.accuracy for r in accuracy},
+        "schema_valid_rate": run.schema_valid_rate,
+        "repair_retry_rate": run.repair_retry_rate,
+        "latency_p50_s": run.latency_p50,
+        "latency_p95_s": run.latency_p95,
+        "cost_per_1000_usd": run.cost_per_1000,
+    }
+
+
+TABLE_COLUMNS = {
+    "skills_precision": "Skills precision",
+    "skills_recall": "Skills recall",
+    "skills_invented": "Skills invented",
+    "seniority_accuracy": "Seniority accuracy",
+    "role_type_accuracy": "Role type accuracy",
+    "work_mode_accuracy": "Work mode accuracy",
+    "german_accuracy": "German accuracy",
+    "schema_valid_rate": "Schema-valid rate",
+    "repair_retry_rate": "Repair-retry rate",
+    "latency_p50_s": "p50 latency",
+    "latency_p95_s": "p95 latency",
+    "cost_per_1000_usd": "Cost / 1000 postings",
+}
+
+_FORMATS = {"latency_p50_s": _secs, "latency_p95_s": _secs, "cost_per_1000_usd": _usd}
+
+
+def markdown_table(model: str, values: dict) -> str:
+    """A one-row Markdown table of the summary, ready to paste into the README.
+
+    Columns are padded to equal width so the table also reads well in the terminal.
+    """
+    headers = ["Model", *TABLE_COLUMNS.values()]
+    cells = [model] + [_FORMATS.get(key, _pct)(values[key]) for key in TABLE_COLUMNS]
+    widths = [max(len(h), len(c), 3) for h, c in zip(headers, cells, strict=True)]
+    # Model is left-aligned, the numbers right-aligned (":" on the right of the rule).
+    rule = ["-" * widths[0]] + ["-" * (w - 1) + ":" for w in widths[1:]]
+    header_row = [h.ljust(w) for h, w in zip(headers, widths, strict=True)]
+    value_row = [cells[0].ljust(widths[0])] + [
+        c.rjust(w) for c, w in zip(cells[1:], widths[1:], strict=True)
+    ]
+    return "\n".join("| " + " | ".join(row) + " |" for row in (header_row, rule, value_row))
+
+
+def posting_errors(
+    run: RunReport, accuracy: list[AccuracyReport], skills: SkillsReport, salary: SalaryReport
+) -> dict[str, dict]:
+    """Everything that went wrong, by posting ID; postings with no errors are left out."""
+    errors: dict[str, dict] = {}
+    for posting_id, error in run.failed.items():
+        errors.setdefault(posting_id, {})["extraction_error"] = error
+    for r in accuracy:
+        for m in r.misses:
+            errors.setdefault(m.posting_id, {})[r.field] = {"gold": m.gold, "pred": m.pred}
+    per_posting = {
+        "skills_missing": skills.missing,
+        "skills_extra": skills.extra,
+        "skills_not_in_text": skills.ungrounded,
+        "salary_not_in_text": salary.ungrounded,
+    }
+    for key, by_id in per_posting.items():
+        for posting_id, values in by_id.items():
+            errors.setdefault(posting_id, {})[key] = [str(v) for v in values]
+    return dict(sorted(errors.items()))
+
+
 def metrics_json(
-    accuracy: list[AccuracyReport], skills: SkillsReport, salary: SalaryReport, failed: list[str]
+    predictions: Path,
+    run: RunReport,
+    accuracy: list[AccuracyReport],
+    skills: SkillsReport,
+    salary: SalaryReport,
 ) -> dict:
     return {
-        "failed": failed,
-        "accuracy": {
-            r.field: {
-                "n": r.n,
-                "correct": r.correct,
-                "accuracy": r.accuracy,
-                "misses": [asdict(m) for m in r.misses],
-            }
-            for r in accuracy
-        },
-        "skills": {
-            "n": skills.n,
-            "predicted": skills.predicted,
-            "tp": skills.tp,
-            "fp": skills.fp,
-            "fn": skills.fn,
-            "micro_precision": skills.micro_precision,
-            "micro_recall": skills.micro_recall,
-            "macro_precision": skills.macro_precision,
-            "macro_recall": skills.macro_recall,
-            "invented_not_in_label": skills.invented_not_in_label,
-            "invented_not_in_text": skills.invented_not_in_text,
-            "ungrounded": {k: [s.value for s in v] for k, v in skills.ungrounded.items()},
-        },
-        "salary": {
-            "n": salary.n,
-            "predicted": salary.predicted,
-            "not_in_text": salary.not_in_text,
-            "invented_not_in_text": salary.invented_not_in_text,
-            "ungrounded": salary.ungrounded,
-        },
+        "predictions": predictions.name,
+        "postings": run.n,
+        "scored": skills.n,
+        "summary": summary(run, accuracy, skills),
+        "errors": posting_errors(run, accuracy, skills, salary),
     }
+
+
+def _first_ok(records: list[dict]) -> dict | None:
+    return next((r for r in records if "posting" in r), None)
+
+
+def _model_name(records: list[dict], predictions: Path) -> str:
+    """provider/model from the first successful record, else from the file name."""
+    first = _first_ok(records)
+    return predictions.stem if first is None else f"{first['provider']}/{first['model']}"
 
 
 def main(
@@ -197,13 +280,22 @@ def main(
     if predictions is None:
         predictions = run_predictions(split, provider, model)
         print(f"predictions: {predictions}")
-    examples, failed = load_examples(predictions)
+    records = load_records(predictions)
+    examples, _ = load_examples(predictions)
+    first = _first_ok(records)
+    price = None if first is None else price_for(first["model"])
+    if first is not None and price is None:
+        print(f"no price for {first['model']} in prices.yaml; cost is n/a", file=sys.stderr)
+    run = score_run(records, price)
     accuracy = [score_accuracy(examples, field) for field in ACCURACY_FIELDS]
     skills, salary = score_skills(examples), score_salary(examples)
-    print(report(accuracy, skills, salary, failed))
+    print(report(run, accuracy, skills, salary))
+
+    metrics = metrics_json(predictions, run, accuracy, skills, salary)
+    print("\n" + markdown_table(_model_name(records, predictions), metrics["summary"]))
 
     out = predictions.with_name(f"{predictions.stem}_metrics.json")
-    out.write_text(json.dumps(metrics_json(accuracy, skills, salary, failed), indent=2) + "\n")
+    out.write_text(json.dumps(metrics, indent=2) + "\n")
     print(f"\nmetrics: {out}")
 
 
