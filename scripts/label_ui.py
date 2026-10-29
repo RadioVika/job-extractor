@@ -224,25 +224,35 @@ class LabelChange(BaseModel):
 
 @app.post("/api/postings/{posting_id}/labels")
 def change_label(posting_id: str, change: LabelChange) -> dict[str, Any]:
-    spec = FIELDS.get(change.field)
-    if spec is None:
-        raise HTTPException(400, f"unknown field {change.field}")
-    labels = read_labels(posting_id)
-    value = change.value
-    if spec["kind"] in ("enum", "multi") and value not in spec["options"]:
-        raise HTTPException(400, f"{value!r} is not a valid {change.field}")
+    apply_change(posting_id, change.field, change.value)
+    return posting_state(posting_id)
 
-    if spec["kind"] == "multi":
-        current = labels.get(change.field) or []
-        labels[change.field] = (
+
+def apply_change(posting_id: str, field: str, value: Any) -> None:
+    """Write one label change. A single value toggles in or out of a list field; a list
+    replaces the field's whole list."""
+    spec = FIELDS.get(field)
+    if spec is None:
+        raise HTTPException(400, f"unknown field {field}")
+    labels = read_labels(posting_id)
+    replace = spec["kind"] == "multi" and isinstance(value, list)
+    for v in value if replace else [value]:
+        if spec["kind"] in ("enum", "multi") and v not in spec["options"]:
+            raise HTTPException(400, f"{v!r} is not a valid {field}")
+
+    if replace:
+        labels[field] = list(dict.fromkeys(value))
+    elif spec["kind"] == "multi":
+        current = labels.get(field) or []
+        labels[field] = (
             [v for v in current if v != value] if value in current else [*current, value]
         )
     elif spec["kind"] == "enum":
-        labels[change.field] = value
+        labels[field] = value
     elif spec["kind"] == "int":
-        labels[change.field] = None if value in (None, "") else int(value)
+        labels[field] = None if value in (None, "") else int(value)
     else:
-        labels[change.field] = str(value or "").strip()
+        labels[field] = str(value or "").strip()
 
     # A fresh file gets the optional / list fields too, so it only needs the required picks.
     for name, field_spec in FIELDS.items():
@@ -252,7 +262,6 @@ def change_label(posting_id: str, change: LabelChange) -> dict[str, Any]:
             elif not JobPosting.model_fields[name].is_required():
                 labels[name] = JobPosting.model_fields[name].default
     write_labels(posting_id, labels)
-    return posting_state(posting_id)
 
 
 PAGE = """<!doctype html>

@@ -46,3 +46,5 @@ Evaluation (`src/evaluation/`, a second package; `pyproject.toml` lists both in 
 - `grounding.py`: one broad regex per `Skill`, from the wording table in `docs/LABELING_GUIDE.md`, used for the not-in-text check. Add a pattern when adding a `Skill` (a test enforces it).
 
 Labels are hand-made in `data/labels/pNNN.json` (`scripts/label_ui.py`, guide in `docs/LABELING_GUIDE.md`); `scripts/split_labels.py` writes the dev/test split to `data/splits.json`.
+
+Error analysis: `uv run python scripts/error_ui.py` (http://127.0.0.1:8001) shows a run from `data/cache` (newest with records by default) as posting text | gold labels | prediction with per-posting metrics. Metrics are recomputed live against the current labels with the `evaluation` functions; gold edits go through `label_ui.apply_change`, so both UIs write labels the same way.
