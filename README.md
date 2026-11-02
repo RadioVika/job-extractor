@@ -94,6 +94,28 @@ uv run python -m job_extractor.extract test --provider openai      # OpenAI, gpt
 uv run python -m job_extractor.extract test --provider anthropic --model claude-sonnet-5-5
 ```
 
+## Running the API
+
+```sh
+uv run uvicorn job_extractor.api:app --reload    # http://127.0.0.1:8000, docs at /docs
+```
+
+`POST /extract` takes the posting text (up to 20,000 characters) and an optional `provider`
+(`anthropic` by default, `openai`, or `llama` if a llama-server is already running on
+`LLAMA_PORT`). The model and API keys come from `.env` as above.
+
+```sh
+curl -s -X POST http://127.0.0.1:8000/extract \
+  -H 'Content-Type: application/json' \
+  -d '{"text": "Senior ML Engineer\nBerlin (hybrid)\n\nRanking models in Python and PyTorch on GCP. Salary 80,000-95,000 EUR.", "provider": "anthropic"}'
+# {"job_posting": {"role_type": "ml_engineer", "seniority": "senior", ...},
+#  "usage": {"input_tokens": 4732, "output_tokens": 112}, "latency_ms": 2122.5}
+```
+
+Invalid input returns 422. If the provider fails (API, network or timeout error, refusal, or
+output that is still invalid after the repair attempt), the API returns 502 with
+`{"detail": "<provider> request failed: <reason>"}`. `GET /health` returns `{"status": "ok"}`.
+
 ### Adding a provider
 
 All provider code lives in `src/job_extractor/llm.py`; the rest of the app only uses the
