@@ -5,7 +5,6 @@
   "german": "not_mentioned",
   "skills": ["agents", "docker", "fastapi", "python", "sql", "pytorch", "statistics", "tensorflow", "langchain", "pandas", "llm", "scikit_learn", "bigquery"],
   "clouds": ["aws"],
-  "data_types": ["geospatial", "tabular"],
   "industry": null,
   "salary_min_eur": 53000,
   "salary_max_eur": 73000

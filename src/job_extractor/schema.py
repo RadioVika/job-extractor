@@ -69,7 +69,6 @@ class Skill(StrEnum):
     llm_evaluation = "llm_evaluation"
     guardrails = "guardrails"
     tracing = "tracing"
-    observability = "observability"
     # engineering and ops
     fastapi = "fastapi"
     docker = "docker"
@@ -97,15 +96,6 @@ class Skill(StrEnum):
     forecasting = "forecasting"
 
 
-class DataType(StrEnum):
-    images = "images"
-    tabular = "tabular"
-    prices = "prices"
-    text = "text"
-    geospatial = "geospatial"
-    video = "video"
-
-
 class JobPosting(BaseModel):
     role_type: RoleType  # ai_engineer, ml_engineer, data_scientist, data_engineer, other
     seniority: Seniority
@@ -113,7 +103,6 @@ class JobPosting(BaseModel):
     german: GermanLevel
     skills: list[Skill] = Field(description="Only skills from the fixed vocabulary")
     clouds: list[Cloud]  # aws, gcp, azure
-    data_types: list[DataType]
     industry: str | None = None
     salary_min_eur: int | None = None
     salary_max_eur: int | None = None

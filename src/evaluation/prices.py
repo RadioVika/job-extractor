@@ -1,6 +1,6 @@
 """Model list prices from prices.yaml, for the cost metric."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
@@ -13,10 +13,11 @@ PRICES = ROOT / "prices.yaml"
 
 @dataclass(frozen=True)
 class Price:
-    """USD per 1M tokens."""
+    """USD per 1M tokens, in effect since the entry's date in prices.yaml."""
 
     input: float
     output: float
+    since: date | None = field(default=None, compare=False)
 
     def cost(self, input_tokens: int, output_tokens: int) -> float:
         return (input_tokens * self.input + output_tokens * self.output) / 1_000_000
@@ -32,5 +33,6 @@ def price_for(model: str, path: Path = PRICES, today: date | None = None) -> Pri
     current = [e for e in entries if e["model"] == model and e["date"] <= today]
     if not current:
         return None
-    price = max(current, key=lambda e: e["date"])["price"]
-    return Price(input=float(price["input"]), output=float(price["output"]))
+    entry = max(current, key=lambda e: e["date"])
+    price = entry["price"]
+    return Price(input=float(price["input"]), output=float(price["output"]), since=entry["date"])

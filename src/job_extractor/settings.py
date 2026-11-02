@@ -29,6 +29,6 @@ class Settings(BaseSettings):
     # None follows EFFORT. "none" skips reasoning, which is most of the local model's run time.
     llama_reasoning: LlamaReasoning | None = None
     effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
-    prompt_version: str = "v1"
+    prompt_version: str = "v2"
     # DEBUG adds the prompts and raw response text to the log.
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"

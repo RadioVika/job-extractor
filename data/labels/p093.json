@@ -5,7 +5,6 @@
   "german": "not_mentioned",
   "skills": ["sql", "statistics", "python", "pytorch", "tensorflow", "forecasting"],
   "clouds": [],
-  "data_types": [],
   "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null

@@ -5,7 +5,6 @@
   "german": "required",
   "skills": ["docker", "llm", "scikit_learn", "mlflow", "mlops", "ci_cd", "python", "tensorflow", "pytorch"],
   "clouds": [],
-  "data_types": [],
   "industry": null,
   "salary_min_eur": 54000,
   "salary_max_eur": 79000

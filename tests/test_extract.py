@@ -21,7 +21,6 @@ POSTING = JobPosting(
     german="nice_to_have",
     skills=["python"],
     clouds=["aws"],
-    data_types=["tabular"],
     industry="insurance",
 )
 

@@ -3,9 +3,8 @@
   "seniority": "mid",
   "work_mode": "remote",
   "german": "not_mentioned",
-  "skills": ["llm", "nlp", "agents", "python", "pytorch", "sql", "tensorflow"],
+  "skills": ["llm", "nlp", "python", "pytorch", "sql", "tensorflow", "statistics", "mlops"],
   "clouds": [],
-  "data_types": [],
   "industry": null,
   "salary_min_eur": 90000,
   "salary_max_eur": 168000

@@ -12,7 +12,13 @@ from evaluation.metrics import (
     score_skills,
 )
 from evaluation.prices import Price, price_for
-from evaluation.run import TABLE_COLUMNS, load_examples, markdown_table, metrics_json
+from evaluation.run import (
+    TABLE_COLUMNS,
+    append_results,
+    load_examples,
+    markdown_table,
+    metrics_json,
+)
 from evaluation.salary import SALARY_FIELDS, ungrounded_salary
 from job_extractor.schema import JobPosting, Skill
 
@@ -24,7 +30,6 @@ def posting(skills=(), **fields):
         "work_mode": "remote",
         "german": "not_mentioned",
         "clouds": [],
-        "data_types": [],
     }
     return JobPosting(skills=list(skills), **(defaults | fields))
 
@@ -225,6 +230,7 @@ def test_price_for(tmp_path):
     )
     assert price_for("m", prices, date(2026, 3, 1)) == Price(1.0, 2.0)
     assert price_for("m", prices, date(2026, 7, 1)) == Price(3.0, 4.0)
+    assert price_for("m", prices, date(2026, 7, 1)).since == date(2026, 6, 1)
     assert price_for("m", prices, date(2025, 1, 1)) is None
     assert price_for("other", prices) is None
 
@@ -270,3 +276,36 @@ def test_metrics_json_and_table(tmp_path):
     cells = [c.strip() for c in table[2].strip("|").split("|")]
     assert cells[:4] == ["openai/gpt", "66.7%", "66.7%", "33.3%"]
     assert cells[-3:] == ["1.00 s", "2.00 s", "n/a"]
+
+
+def test_append_results(tmp_path):
+    from datetime import date, datetime
+
+    results = tmp_path / "reports" / "results.md"
+    predictions = tmp_path / "20261102-120000_dev_short_openai_gpt-x_v2.jsonl"
+    ok = {"id": "p1", "posting": {}, "provider": "openai", "model": "gpt-x", "prompt_version": "v2"}
+    records = [ok, {"id": "p2", "error": "ExtractionError: boom"}]
+    price = Price(1.0, 2.0, since=date(2026, 10, 27))
+    kwargs = {"path": results, "now": datetime(2026, 11, 2, 12, 0), "commit": "abc1234"}
+
+    append_results("dev", predictions, records, price, "| table |", **kwargs)
+    # A run with no successful records falls back to the file name.
+    append_results("dev_short", predictions, records[1:], None, "| table 2 |", **kwargs)
+
+    text = results.read_text()
+    assert text.startswith("# Evaluation results")
+    assert text.count("## 2026-11-02 12:00") == 2
+    first, second = text.split("## ")[1:]
+    for line in [
+        "- Git commit: abc1234",
+        "- Prompt version: v2",
+        "- Provider: openai",
+        "- Model: gpt-x",
+        "- Dataset: dev",
+        "- Postings: 2",
+        "- Price date (prices.yaml): 2026-10-27",
+        "| table |",
+    ]:
+        assert line in first
+    assert "- Dataset: dev_short" in second and "- Model: gpt-x" in second
+    assert "- Postings: 1" in second and "- Price date (prices.yaml): n/a" in second

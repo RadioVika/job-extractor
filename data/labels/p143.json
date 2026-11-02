@@ -5,7 +5,6 @@
   "german": "required",
   "skills": ["ci_cd", "llm", "docker", "rag"],
   "clouds": [],
-  "data_types": [],
   "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null

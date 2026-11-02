@@ -5,7 +5,6 @@
   "german": "required",
   "skills": ["pandas", "numpy", "pytorch", "tensorflow", "scikit_learn", "python", "sql", "xgboost"],
   "clouds": [],
-  "data_types": [],
   "industry": null,
   "salary_min_eur": 61000,
   "salary_max_eur": 75000

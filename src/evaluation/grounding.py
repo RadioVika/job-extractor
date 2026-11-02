@@ -38,7 +38,6 @@ _PATTERNS: dict[Skill, str] = {
     Skill.llm_evaluation: r"\bevals?\b|evaluat|llm[- ]as[- ]a?[- ]?judge|golden data",
     Skill.guardrails: r"guardrail|safety|output validation",
     Skill.tracing: r"tracing|langsmith|langfuse",
-    Skill.observability: r"observability|monitor",
     Skill.fastapi: r"fastapi",
     Skill.docker: r"docker|container",
     Skill.kubernetes: r"kubernetes|\bk8s\b|\beks\b|\bgke\b|\baks\b",

@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import re
+import subprocess
 import sys
 from contextlib import nullcontext
 from datetime import datetime
@@ -27,7 +28,7 @@ from evaluation.metrics import (
     score_salary,
     score_skills,
 )
-from evaluation.prices import price_for
+from evaluation.prices import Price, price_for
 from job_extractor.extract import (
     CONCURRENCY,
     LABELS,
@@ -46,6 +47,7 @@ from job_extractor.schema import JobPosting
 from job_extractor.settings import Provider
 
 CACHE = ROOT / "data" / "cache"
+RESULTS = ROOT / "reports" / "results.md"
 
 
 def _slug(value: str) -> str:
@@ -271,6 +273,78 @@ def _model_name(records: list[dict], predictions: Path) -> str:
     return predictions.stem if first is None else f"{first['provider']}/{first['model']}"
 
 
+def _git_commit() -> str:
+    """Short HEAD hash, marked when the working tree has uncommitted changes."""
+    try:
+        git = ["git", "-C", str(ROOT)]
+        head = subprocess.run(
+            [*git, "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True
+        ).stdout.strip()
+        dirty = subprocess.run(
+            [*git, "status", "--porcelain"], capture_output=True, text=True, check=True
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "n/a"
+    return f"{head} (uncommitted changes)" if dirty else head
+
+
+def _run_info(records: list[dict], predictions: Path) -> dict[str, str]:
+    """provider, model and prompt version from the first successful record, else from the
+    file name (<time>_<split>_<provider>_<model>_<prompt>, model slugged)."""
+    first = _first_ok(records)
+    if first is not None:
+        return {k: first[k] for k in ("provider", "model", "prompt_version")}
+    parts = predictions.stem.rsplit("_", 3)
+    if len(parts) < 4:
+        return {"provider": "n/a", "model": "n/a", "prompt_version": "n/a"}
+    return {"provider": parts[1], "model": parts[2], "prompt_version": parts[3]}
+
+
+RESULTS_HEADER = """# Evaluation results
+
+One section per `python -m evaluation.run`, newest last. Written by `src/evaluation/run.py`.
+"""
+
+
+def append_results(
+    split: str,
+    predictions: Path,
+    records: list[dict],
+    price: Price | None,
+    table: str,
+    path: Path = RESULTS,
+    now: datetime | None = None,
+    commit: str | None = None,
+) -> None:
+    """Append one run's details and metrics table to path, creating the file if needed."""
+    info = _run_info(records, predictions)
+    when = (now or datetime.now()).strftime("%Y-%m-%d %H:%M")
+    price_date = "n/a" if price is None or price.since is None else price.since.isoformat()
+    section = "\n".join(
+        [
+            f"## {when} · {split} · {info['provider']}/{info['model']}",
+            "",
+            f"- Date: {when}",
+            f"- Git commit: {commit or _git_commit()}",
+            f"- Prompt version: {info['prompt_version']}",
+            f"- Provider: {info['provider']}",
+            f"- Model: {info['model']}",
+            f"- Dataset: {split}",
+            f"- Postings: {len(records)}",
+            f"- Price date (prices.yaml): {price_date}",
+            f"- Predictions: `{predictions.name}`",
+            "",
+            table,
+            "",
+        ]
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.write_text(RESULTS_HEADER, encoding="utf-8")
+    with path.open("a", encoding="utf-8") as f:
+        f.write("\n" + section)
+
+
 def main(
     split: str,
     provider: str | None = None,
@@ -292,11 +366,15 @@ def main(
     print(report(run, accuracy, skills, salary))
 
     metrics = metrics_json(predictions, run, accuracy, skills, salary)
-    print("\n" + markdown_table(_model_name(records, predictions), metrics["summary"]))
+    table = markdown_table(_model_name(records, predictions), metrics["summary"])
+    print("\n" + table)
 
     out = predictions.with_name(f"{predictions.stem}_metrics.json")
     out.write_text(json.dumps(metrics, indent=2) + "\n")
     print(f"\nmetrics: {out}")
+
+    append_results(split, predictions, records, price, table)
+    print(f"results: {RESULTS.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

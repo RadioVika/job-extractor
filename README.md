@@ -117,8 +117,15 @@ Raw data is available per request
 
 # Metrics
 
+
+V1
 | Model                      | Skills precision | Skills recall | Skills invented | Seniority accuracy | Role type accuracy | Work mode accuracy | German accuracy | Schema-valid rate | Repair-retry rate | p50 latency | p95 latency | Cost / 1000 postings |
 | -------------------------- | ---------------- | ------------- | --------------- | ------------------ | ------------------ | ------------------ | --------------- | ----------------- | ----------------- | ----------- | ----------- | -------------------- |
 | openai/gpt-6-luna          |            74.6% |         89.9% |            6.3% |              78.0% |              86.0% |              83.0% |           90.0% |            100.0% |              0.0% |      4.82 s |      7.84 s |                $0.53 |
 | anthropic/claude-haiku-5-5 |            77.0% |         88.3% |            3.1% |              78.0% |              85.0% |              81.0% |           90.0% |            100.0% |              1.0% |      5.32 s |      7.34 s |                $1.10 |
 | llama/bonsai-2             |            66.1% |         58.7% |           17.3% |              66.0% |              80.0% |              70.0% |           85.0% |            100.0% |              0.0% |      9.06 s |     12.43 s |                $0.00 |
+
+V2
+| Model                      | Skills precision | Skills recall | Skills invented | Seniority accuracy | Role type accuracy | Work mode accuracy | German accuracy | Schema-valid rate | Repair-retry rate | p50 latency | p95 latency | Cost / 1000 postings |
+| -------------------------- | ---------------: | ------------: | --------------: | -----------------: | -----------------: | -----------------: | --------------: | ----------------: | ----------------: | ----------: | ----------: | -------------------: |
+| anthropic/claude-haiku-5-5 |            80.4% |         94.3% |            2.4% |              78.0% |              89.0% |              81.0% |           90.0% |            100.0% |              0.0% |      4.64 s |      7.39 s |                $1.09 |

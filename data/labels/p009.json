@@ -3,9 +3,8 @@
   "seniority": "senior",
   "work_mode": "hybrid",
   "german": "not_mentioned",
-  "skills": ["python", "ci_cd", "agents", "observability", "typescript", "guardrails"],
+  "skills": ["python", "ci_cd", "agents", "typescript", "guardrails"],
   "clouds": [],
-  "data_types": ["text"],
   "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null

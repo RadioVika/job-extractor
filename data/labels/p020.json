@@ -5,7 +5,6 @@
   "german": "not_mentioned",
   "skills": ["agents", "asr", "llm", "sql", "typescript", "python"],
   "clouds": [],
-  "data_types": ["text", "tabular"],
   "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null

@@ -16,7 +16,6 @@ GOLD = {
     "german": "not_mentioned",
     "skills": ["python", "sql", "spark"],
     "clouds": ["aws"],
-    "data_types": [],
     "industry": "travel",
     "salary_min_eur": 70000,
     "salary_max_eur": None,
@@ -95,7 +94,6 @@ def test_posting_metrics(client):
     assert skills["recall"] == pytest.approx(2 / 3)
     assert m["skills_invented_not_in_label"] == pytest.approx(1 / 3)
     assert m["skills_not_in_text"] == ["pytorch"]
-    assert m["lists"]["data_types"]["precision"] == 1.0  # both empty is a perfect score
     assert m["salary_not_in_text"] == []
     assert m["stats"]["latency_s"] == 1.5
     assert m["issues"] == 3  # seniority, one extra skill, one missing skill

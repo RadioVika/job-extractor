@@ -104,7 +104,6 @@ Mapping from posting wording to vocabulary:
 | `llm_evaluation` | Evals, evaluator design, LLM-as-judge, golden datasets. |
 | `guardrails` | Guardrails, output validation and safety filters for LLMs. |
 | `tracing` | Tracing LLM calls: LangSmith, Langfuse, "tracing". |
-| `observability` | Observability or monitoring of systems in production. |
 | `fastapi` | FastAPI by name. |
 | `docker`, `kubernetes`, `terraform`, `airflow` | The tool by name. K8s → `kubernetes`. |
 | `ci_cd` | CI/CD, GitHub Actions, GitLab CI. |
@@ -129,20 +128,6 @@ Only clouds the posting names, directly or through one of their services:
 - `azure`: Azure, Azure OpenAI
 
 Databricks and Snowflake run on several clouds, so they don't count.
-
-### `data_types`
-
-The kinds of data the hire works with, from the `DataType` vocabulary. Tag only data the posting names as part of the job, not everything the company happens to have.
-
-| Value | Posting says |
-|---|---|
-| `text` | Text, documents, language data, conversations, transcripts; also LLM/NLP work over the company's own content. |
-| `images` | Images, video, computer vision. |
-| `tabular` | Structured/tabular data, transactional or event data, data warehouses, feature tables. |
-| `prices` | Pricing, price data, dynamic pricing, financial time series. |
-| `geospatial` | Maps, locations, GPS, routing, geospatial data. |
-
-Silent on data → `[]`.
 
 ### `industry`
 
@@ -172,7 +157,6 @@ Annual gross salary in euros, as whole numbers.
   "german": "not_mentioned",
   "skills": ["llm"],
   "clouds": [],
-  "data_types": [],
   "industry": "travel",
   "salary_min_eur": null,
   "salary_max_eur": null
@@ -183,4 +167,3 @@ Annual gross salary in euros, as whole numbers.
 - `senior`: from "Senior" in the title.
 - `hybrid`: "three days of in office collaboration" and `#LI-Hybrid`.
 - `skills`: only `llm`, from "Experience applying LLMs" in the extras. LLM-as-judge monitoring and the MLOps Engineers describe what the team does, not what this person does hands-on.
-- `data_types`: `[]`, the posting doesn't say what data the role works with.

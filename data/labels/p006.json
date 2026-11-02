@@ -3,9 +3,8 @@
   "seniority": "staff",
   "work_mode": "hybrid",
   "german": "not_mentioned",
-  "skills": ["python", "mlops", "nlp", "llm", "rag", "agents", "pytorch", "asr", "statistics", "observability", "fine_tuning", "guardrails", "typescript"],
+  "skills": ["python", "mlops", "nlp", "llm", "rag", "agents", "pytorch", "asr", "statistics", "fine_tuning", "guardrails", "typescript"],
   "clouds": ["aws", "gcp"],
-  "data_types": ["text"],
   "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null

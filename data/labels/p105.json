@@ -5,7 +5,6 @@
   "german": "required",
   "skills": ["databricks", "etl", "sql"],
   "clouds": [],
-  "data_types": [],
   "industry": "",
   "salary_min_eur": 73000,
   "salary_max_eur": 90000

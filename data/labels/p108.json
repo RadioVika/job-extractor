@@ -5,7 +5,6 @@
   "german": "required",
   "skills": ["llm", "python", "sql", "rag", "prompt_engineering"],
   "clouds": [],
-  "data_types": [],
   "industry": null,
   "salary_min_eur": 80000,
   "salary_max_eur": 120000

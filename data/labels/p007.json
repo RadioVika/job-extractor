@@ -3,9 +3,8 @@
   "seniority": "senior",
   "work_mode": "unspecified",
   "german": "not_mentioned",
-  "skills": ["ranking", "llm", "rag", "ab_testing", "search", "causal_inference", "observability", "typescript", "python"],
+  "skills": ["ranking", "llm", "rag", "ab_testing", "search", "causal_inference", "typescript", "python"],
   "clouds": ["aws"],
-  "data_types": ["text"],
   "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null

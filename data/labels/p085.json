@@ -3,9 +3,8 @@
   "seniority": "staff",
   "work_mode": "hybrid",
   "german": "not_mentioned",
-  "skills": ["airflow", "kafka", "ci_cd", "kubernetes", "observability", "python"],
+  "skills": ["airflow", "kafka", "ci_cd", "kubernetes", "python"],
   "clouds": ["aws"],
-  "data_types": [],
   "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null

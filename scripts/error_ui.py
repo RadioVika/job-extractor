@@ -34,7 +34,7 @@ from evaluation.salary import SALARY_FIELDS, ungrounded_salary
 from job_extractor.schema import JobPosting
 
 CACHE = Path("data/cache")
-LIST_FIELDS = ("skills", "clouds", "data_types")
+LIST_FIELDS = ("skills", "clouds")
 
 
 def run_files() -> list[Path]:
@@ -721,12 +721,10 @@ function renderPrediction() {
                   `${m.skills_not_in_text.length}/${nSkills} skills`,
                   grade(m.skills_invented_not_in_text, true)));
   if (scored) {
-    for (const f of ["clouds", "data_types"]) {
-      const l = m.lists[f];
-      tiles.push(tile(`${f.replace("_", " ")} P / R`, `${pct(l.precision)} / ${pct(l.recall)}`,
-                      `${l.extra.length} extra · ${l.missing.length} missing`,
-                      grade(Math.min(l.precision ?? 1, l.recall ?? 1))));
-    }
+    const l = m.lists.clouds;
+    tiles.push(tile("clouds P / R", `${pct(l.precision)} / ${pct(l.recall)}`,
+                    `${l.extra.length} extra · ${l.missing.length} missing`,
+                    grade(Math.min(l.precision ?? 1, l.recall ?? 1))));
   }
   const salaryN = ["salary_min_eur", "salary_max_eur"].filter(f => pred[f] != null).length;
   tiles.push(tile("Salary not in text", pct(m.salary_invented_not_in_text),

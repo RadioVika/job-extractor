@@ -3,9 +3,8 @@
   "seniority": "senior",
   "work_mode": "unspecified",
   "german": "not_mentioned",
-  "skills": ["agents", "airflow", "ci_cd", "databricks", "observability", "terraform", "spark", "python"],
+  "skills": ["agents", "airflow", "ci_cd", "databricks", "terraform", "spark", "python"],
   "clouds": ["aws"],
-  "data_types": [],
   "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null

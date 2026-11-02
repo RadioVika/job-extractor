@@ -3,9 +3,8 @@
   "seniority": "senior",
   "work_mode": "hybrid",
   "german": "not_mentioned",
-  "skills": ["rag", "ranking", "search", "vector_db", "llm", "agents", "mlflow", "causal_inference", "python", "typescript", "prompt_engineering", "fine_tuning", "observability"],
+  "skills": ["rag", "ranking", "search", "vector_db", "llm", "agents", "mlflow", "causal_inference", "python", "typescript", "prompt_engineering", "fine_tuning"],
   "clouds": [],
-  "data_types": ["text"],
   "industry": null,
   "salary_min_eur": null,
   "salary_max_eur": null
