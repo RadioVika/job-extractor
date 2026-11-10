@@ -68,7 +68,7 @@ def test_prompt_exists():
 
 def test_extract_returns_parsed_posting():
     client = FakeClient(fake_response())
-    result = extract("ML Engineer\nBerlin\n\nBody", client, Settings())
+    result = extract("ML Engineer\nBerlin\n\nBody", client, Settings(prompt_version="v1"))
 
     assert result.posting == POSTING
     assert result.provider == "fake"

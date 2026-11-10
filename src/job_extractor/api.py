@@ -1,6 +1,8 @@
 """HTTP API around the extractor: uv run uvicorn job_extractor.api:app"""
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Annotated
 
 import anthropic
@@ -11,20 +13,31 @@ from pydantic import BaseModel, Field, StringConstraints
 from job_extractor.extract import ExtractionError, extract, load_settings
 from job_extractor.llm import LLMClient, LLMError, make_client
 from job_extractor.schema import JobPosting
-from job_extractor.settings import Provider
+from job_extractor.settings import Provider, Settings
 
 MAX_TEXT_CHARS = 20_000
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="job-extractor")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # uvicorn only configures its own loggers; this makes LOG_LEVEL apply to ours.
+    logging.basicConfig(
+        level=Settings().log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
+    yield
+
+
+app = FastAPI(title="job-extractor", lifespan=lifespan)
 
 
 class ExtractRequest(BaseModel):
     text: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_TEXT_CHARS)
     ]
-    provider: Provider = "anthropic"
+    # None uses PROVIDER (and MODEL) from the environment.
+    provider: Provider | None = None
 
 
 class Usage(BaseModel):
@@ -38,14 +51,18 @@ class ExtractResponse(BaseModel):
     latency_ms: float = Field(description="Time spent in model calls, including retries")
 
 
-def get_provider(req: ExtractRequest) -> LLMClient:
+def get_settings(req: ExtractRequest) -> Settings:
+    return load_settings(req.provider)
+
+
+def get_provider(settings: Annotated[Settings, Depends(get_settings)]) -> LLMClient:
     """The LLM client for the requested provider; tests replace it via dependency_overrides."""
     try:
-        return make_client(load_settings(req.provider))
+        return make_client(settings)
     except Exception as e:
         # The OpenAI SDK raises here when no API key can be found.
-        logger.exception("could not create %s client", req.provider)
-        raise HTTPException(502, f"{req.provider} request failed: client setup failed") from e
+        logger.exception("could not create %s client", settings.provider)
+        raise HTTPException(502, f"{settings.provider} request failed: client setup failed") from e
 
 
 def _reason(e: Exception) -> str:
@@ -70,14 +87,16 @@ def health() -> dict[str, str]:
 
 @app.post("/extract")
 def extract_posting(
-    req: ExtractRequest, client: Annotated[LLMClient, Depends(get_provider)]
+    req: ExtractRequest,
+    settings: Annotated[Settings, Depends(get_settings)],
+    client: Annotated[LLMClient, Depends(get_provider)],
 ) -> ExtractResponse:
     # A sync endpoint: FastAPI runs it in a worker thread, so the blocking SDK call is fine.
     try:
-        result = extract(req.text, client, load_settings(req.provider))
+        result = extract(req.text, client, settings)
     except (ExtractionError, LLMError) as e:
-        logger.exception("extraction with %s failed", req.provider)
-        raise HTTPException(502, f"{req.provider} request failed: {_reason(e)}") from e
+        logger.exception("extraction with %s failed", settings.provider)
+        raise HTTPException(502, f"{settings.provider} request failed: {_reason(e)}") from e
     return ExtractResponse(
         job_posting=result.posting,
         usage=Usage(input_tokens=result.input_tokens, output_tokens=result.output_tokens),

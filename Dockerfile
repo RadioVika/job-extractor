@@ -9,7 +9,7 @@ WORKDIR /app
 # UV_PYTHON_DOWNLOADS=0: use the image's Python, never download one.
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=0
 
-# Layer 1: dependencies only. Rebuilt only when the lockfile changes.
+# Layer 1: dependencies only. Rebuilt when uv.lock or pyproject.toml changes.
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
@@ -21,12 +21,14 @@ COPY pyproject.toml uv.lock README.md ./
 COPY src/ ./src/
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
+# UV_COMPILE_BYTECODE skips editable sources, and the runtime user can't write __pycache__.
+RUN python -m compileall -q src
 
 
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 PATH="/app/.venv/bin:$PATH"
-RUN useradd --system --uid 1001 app
+RUN useradd --system --create-home --uid 1001 app
 
 WORKDIR /app
 COPY --from=builder /app /app

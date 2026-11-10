@@ -104,6 +104,14 @@ def test_extract_provider_error(use_fake):
     assert "secret body" not in detail
 
 
+def test_extract_default_provider_from_env(use_fake, monkeypatch):
+    monkeypatch.setenv("PROVIDER", "openai")
+    use_fake(LLMError("openai: down", transient=False))
+    resp = client.post("/extract", json={"text": TEXT})
+    assert resp.status_code == 502
+    assert resp.json()["detail"].startswith("openai request failed: ")
+
+
 def test_extract_invalid_output(use_fake):
     # Real adapters raise ValidationError when the output doesn't match the schema.
     fake = use_fake(lambda: JobPosting.model_validate_json('{"role_type": "astronaut"'))
