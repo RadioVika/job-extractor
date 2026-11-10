@@ -134,20 +134,59 @@ uv run pytest
 uv run ruff check --fix . && uv run ruff format .
 ```
 
-# Testing Dataset
-Raw data is available per request
+## Evaluation
 
-# Metrics
+### Dataset
 
+The evaluation set is 150 AI/data job postings (mostly Germany-based companies, pulled from
+public job boards), each labeled by hand against the `JobPosting` schema. The labeling rules
+for every field are in [docs/LABELING_GUIDE.md](docs/LABELING_GUIDE.md).
 
-V1
-| Model                      | Skills precision | Skills recall | Skills invented | Seniority accuracy | Role type accuracy | Work mode accuracy | German accuracy | Schema-valid rate | Repair-retry rate | p50 latency | p95 latency | Cost / 1000 postings |
-| -------------------------- | ---------------- | ------------- | --------------- | ------------------ | ------------------ | ------------------ | --------------- | ----------------- | ----------------- | ----------- | ----------- | -------------------- |
-| openai/gpt-6-luna          |            74.6% |         89.9% |            6.3% |              78.0% |              86.0% |              83.0% |           90.0% |            100.0% |              0.0% |      4.82 s |      7.84 s |                $0.53 |
-| anthropic/claude-haiku-5-5 |            77.0% |         88.3% |            3.1% |              78.0% |              85.0% |              81.0% |           90.0% |            100.0% |              1.0% |      5.32 s |      7.34 s |                $1.10 |
-| llama/bonsai-2             |            66.1% |         58.7% |           17.3% |              66.0% |              80.0% |              70.0% |           85.0% |            100.0% |              0.0% |      9.06 s |     12.43 s |                $0.00 |
+- `data/postings.jsonl` (tracked): one metadata record per posting (`id`, `url`, `company`,
+  `title`, `date`, `source`).
+- `data/labels/pNNN.json`: the gold labels.
+- `data/splits.json`: a fixed split with a fixed seed: `dev` (100 postings), `test` (50) and
+  `dev_short` (20 postings sampled from `dev`, for quick runs).
+- `data/raw/pNNN.txt` (git-ignored): the posting texts. They are not published with the repo;
+  they are available on request.
 
-V2
-| Model                      | Skills precision | Skills recall | Skills invented | Seniority accuracy | Role type accuracy | Work mode accuracy | German accuracy | Schema-valid rate | Repair-retry rate | p50 latency | p95 latency | Cost / 1000 postings |
-| -------------------------- | ---------------: | ------------: | --------------: | -----------------: | -----------------: | -----------------: | --------------: | ----------------: | ----------------: | ----------: | ----------: | -------------------: |
-| anthropic/claude-haiku-5-5 |            80.4% |         94.3% |            2.4% |              78.0% |              89.0% |              81.0% |           90.0% |            100.0% |              0.0% |      4.64 s |      7.39 s |                $1.09 |
+### Running an evaluation
+
+```sh
+uv run python -m evaluation.run dev                         # default provider and model
+uv run python -m evaluation.run dev_short --provider openai
+uv run python -m evaluation.run dev --predictions data/cache/<run>.jsonl   # re-score, no LLM calls
+```
+
+Each run writes its predictions to `data/cache/<time>_<split>_<provider>_<model>_<prompt>.jsonl`,
+prints a one-row Markdown summary table, and writes `<same name>_metrics.json` with the summary
+and the per-posting errors. It reports:
+
+- Accuracy for `seniority`, `role_type`, `work_mode` and `german` (exact match).
+- Skills: precision and recall, and the share of predicted skills not mentioned in the posting
+  text ("invented").
+- Salary: the share of predicted values with no matching amount in the text.
+- Schema-valid rate, repair-retry rate, p50/p95 latency, and cost per 1000 postings (from
+  `prices.yaml`).
+
+### Labeling UI
+
+```sh
+uv run python scripts/label_ui.py        # http://127.0.0.1:8000
+```
+
+Shows the posting text next to the schema fields; clicking a value saves it to
+`data/labels/pNNN.json`. Typing a new tag into a field's "+ new" box adds it to that field's enum
+in `schema.py`. It uses port 8000, like the API, so don't run both at once.
+
+### Error analysis UI
+
+```sh
+uv run python scripts/error_ui.py        # http://127.0.0.1:8001
+```
+
+Opens a run from `data/cache` (the newest by default; the header picks another) and shows each
+posting in three panels: the text, the gold labels, and the model's prediction with its
+per-posting metrics. Metrics are recomputed live against the current labels, and the gold labels
+can be fixed in place (saved the same way as in the labeling UI), so label fixes show up in the
+scores right away.
