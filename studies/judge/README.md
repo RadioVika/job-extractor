@@ -2,8 +2,7 @@
 
 ## Question
 
-Can the manual labeling process be replaced by a model? The answer is given per field, because a
-model can be good enough for `work_mode` and still not for `skills`.
+Can the manual labeling process be replaced by a model? Completely or per field?
 
 ## Approaches
 
@@ -54,12 +53,3 @@ Manual labeling can be replaced for a field if both hold:
   turn out to be manual-gold errors on re-check), and
 - the report computed from the model (step 3 or 5) is close to the manual one and ranks the
   providers the same way.
-
-Keep in mind when reading the results:
-- Give the judge and the label generator the labeling guide (`docs/LABELING_GUIDE.md`). Gold
-  follows its conventions, so a model that hasn't seen them is graded against rules it doesn't
-  know.
-- Use a judge and label generator from a different model family than the run being judged, or
-  report the same-family case separately (models tend to prefer their own output).
-- The subset is small, so report counts next to rates and don't read much into differences of
-  one or two postings.

@@ -3,7 +3,7 @@
   "seniority": "senior",
   "work_mode": "unspecified",
   "german": "required",
-  "skills": ["docker", "llm", "scikit_learn", "mlflow", "mlops", "ci_cd", "python", "tensorflow", "pytorch"],
+  "skills": ["docker", "scikit_learn", "mlflow", "mlops", "ci_cd", "python", "tensorflow", "pytorch", "etl", "nlp"],
   "clouds": [],
   "industry": null,
   "salary_min_eur": 54000,

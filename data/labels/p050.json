@@ -3,7 +3,7 @@
   "seniority": "senior",
   "work_mode": "remote",
   "german": "required",
-  "skills": ["agents", "rag", "llm", "python"],
+  "skills": ["agents", "rag", "llm", "python", "llm_evaluation"],
   "clouds": [],
   "industry": null,
   "salary_min_eur": 90000,

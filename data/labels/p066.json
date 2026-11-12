@@ -1,9 +1,9 @@
 {
   "role_type": "ml_engineer",
-  "seniority": "staff",
+  "seniority": "unspecified",
   "work_mode": "unspecified",
   "german": "not_mentioned",
-  "skills": ["agents", "ranking", "llm", "search"],
+  "skills": ["agents", "ranking", "llm", "search", "rl", "llm_evaluation", "fine_tuning"],
   "clouds": [],
   "industry": null,
   "salary_min_eur": null,

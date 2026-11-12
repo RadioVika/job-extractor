@@ -2,7 +2,7 @@
   "role_type": "ai_engineer",
   "seniority": "senior",
   "work_mode": "remote",
-  "german": "not_mentioned",
+  "german": "required",
   "skills": ["agents", "llm"],
   "clouds": [],
   "industry": null,
