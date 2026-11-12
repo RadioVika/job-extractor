@@ -46,6 +46,8 @@ Evaluation (`src/evaluation/`, a second package; `pyproject.toml` lists both in 
 - `salary.py`: `ungrounded_salary` finds predicted salary values with no matching amount in the text (as written, or monthly = value / 12); `score_salary` reports the share of predicted values not in the text.
 - `grounding.py`: one broad regex per `Skill`, from the wording table in `docs/LABELING_GUIDE.md`, used for the not-in-text check. Add a pattern when adding a `Skill` (a test enforces it).
 
+LLM-as-judge study (`studies/judge/README.md`): `uv run python -m evaluation.judge_run <run.jsonl> [...]` has `evaluation/judge.py` (Opus 5.5 by default) judge each field of a cached run from the posting text, labeling guide and schema, without the gold label; `judge_metrics.py` compares the verdicts with gold (κ, error-detection precision/recall, report from gold vs judge). Verdicts are cached in `data/cache/judge/`, results appended to `studies/judge/results.md`.
+
 Labels are hand-made in `data/labels/pNNN.json` (`scripts/label_ui.py`, guide in `docs/LABELING_GUIDE.md`); `scripts/split_labels.py` writes the dev/test split to `data/splits.json`.
 
 Error analysis: `uv run python scripts/error_ui.py` (http://127.0.0.1:8001) shows a run from `data/cache` (newest with records by default) as posting text | gold labels | prediction with per-posting metrics. Metrics are recomputed live against the current labels with the `evaluation` functions; gold edits go through `label_ui.apply_change`, so both UIs write labels the same way.

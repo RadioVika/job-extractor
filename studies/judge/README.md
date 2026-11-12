@@ -53,3 +53,23 @@ Manual labeling can be replaced for a field if both hold:
   turn out to be manual-gold errors on re-check), and
 - the report computed from the model (step 3 or 5) is close to the manual one and ranks the
   providers the same way.
+
+## Running step 3
+
+```sh
+uv run python -m evaluation.judge_run \
+    data/cache/20261112-093440_dev_short_openai_gpt-6-luna_v2.jsonl \
+    data/cache/20261112-093525_dev_short_anthropic_claude-haiku-5-5_v2.jsonl
+uv run python -m evaluation.judge_run <runs...> --rescore   # re-score cached verdicts, no LLM
+```
+
+- Judge: `claude-opus-5-5` at `high` effort by default (`--provider`, `--model`, `--effort`).
+  Its system prompt is `prompts/judge_v1.md` + `docs/LABELING_GUIDE.md` + the `JobPosting` JSON
+  schema; the user message is the posting text and the prediction. It never sees gold.
+- Verdicts: `data/cache/judge/<run>__<judge-model>_judge_v1.jsonl`, one line per posting, with a
+  reason for every verdict. Postings already judged are skipped on the next run, so a partial
+  run resumes. Metrics and per-posting disagreements go to `<same name>_metrics.json`.
+- Results (report from gold vs judge with Δ pp and the ranking check, plus per-field κ and
+  error-detection precision/recall) are printed and appended to `results.md`.
+- Code: `src/evaluation/judge.py` (prompt, verdict schema, calls), `judge_metrics.py` (pure
+  scoring), `judge_run.py` (CLI and report).
